@@ -112,6 +112,7 @@ const camW = new THREE.Vector3();
 const tmp = new THREE.Vector3();
 const dir = new THREE.Vector3();
 const prevPalm = new THREE.Vector3();
+const palmN = new THREE.Vector3();
 const ray = new THREE.Raycaster();
 let hovered = null;
 let recentHover = null;
@@ -215,7 +216,12 @@ function updateHand(nowMs, dt) {
   hand.update(P, th.handScale);
   hand.group.visible = true;
 
-  world.setHand(palmW, gestures.pose === 'ABIERTA');
+  // Abrir la mano suelta lo que llevas; cuánto cierras el puño = cuánto aprietas
+  const releaseOpen = (th.fist + th.open) / 2 + 0.08;
+  const openV = gestures.v.open || 2;
+  const squeeze = Math.max(0, Math.min(1, (releaseOpen - openV) / Math.max(0.1, releaseOpen - 0.75)));
+  palmN.copy(P[5]).sub(P[0]).cross(tmp.copy(P[17]).sub(P[0])).normalize();
+  world.setHand(palmW, openV > releaseOpen, P, squeeze, palmN);
   hovered = world.findHover([palmW, P[4], P[8], P[12]], th.hover);
   if (hovered) { recentHover = hovered; recentHoverT = nowMs; }
 }

@@ -1,6 +1,7 @@
 // Nivel: habitación + pasillo, objetos interactivos y lógica del puzzle.
 import * as THREE from 'three';
 import { ps1Mat, boxGeo, makeTex, makeTextTex } from './ps1.js';
+import { Balls } from './balls.js';
 
 const PLAYER_R = 0.24;
 
@@ -121,7 +122,7 @@ export class World {
     nose.position.set(0, 0.22, 0.085);
     this.plushInner.add(nose);
 
-    this.plush.position.set(tx - 0.1, topY, tz);
+    this.plush.position.set(tx - 0.28, topY, tz);
     this.plush.rotation.y = -0.6;
     this.scene.add(this.plush);
 
@@ -136,6 +137,9 @@ export class World {
     this._handVel = new THREE.Vector3();
     this._softWas = false;
     this._squeakT = 0;
+
+    // 10 pelotas en la mitad derecha de la mesa
+    this.balls = new Balls(this, { x0: tx - 0.02, z0: tz - 0.08, topY });
 
     this.itPlush = this.addItem({
       id: 'plush', gesture: 'grab', obj: this.plush, pad: 0.05,
@@ -184,7 +188,10 @@ export class World {
     return null;
   }
 
-  setHand(palm, open) {
+  setHand(palm, open, P = null, squeeze = 0, normal = null) {
+    this._handPts = P;
+    this._squeeze = squeeze;
+    this._palmNormal = normal;
     if (palm) {
       if (this._handPalm) this._handVel.lerp(this._v1 = (this._v1 || new THREE.Vector3()).copy(palm).sub(this._prevHandPalm).divideScalar(Math.max(this._dt || 0.016, 1e-3)), 0.4);
       this._prevHandPalm.copy(palm);
@@ -194,7 +201,7 @@ export class World {
   }
 
   grabPlush() {
-    if (this.plushHeld) return;
+    if (this.plushHeld || (this.balls && this.balls.held)) return;
     this.plushHeld = true;
     this.plushFalling = false;
     this.itPlush.disabled = true;
@@ -725,6 +732,7 @@ export class World {
     this._dt = dt;
     if (this.plush) this.updatePlush(dt);
     for (const m of this.mixers) m.update(dt);
+    if (this.balls) this.balls.update(dt);
     const s = this.state;
     const t = this.time;
     const { sfx } = this.ctx;
