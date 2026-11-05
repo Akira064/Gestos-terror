@@ -104,10 +104,10 @@ export class Gun {
     w.ctx.msg('Aprieta el gatillo doblando el índice. Gira la muñeca para recargar.', 3.5);
   }
 
-  release() {
+  release(vel = this.world._handVel) {
     this.held = false;
     this.falling = true;
-    this.vel.copy(this.world._handVel).clampLength(0, 5);
+    this.vel.copy(vel).clampLength(0, 5);
     this.item.disabled = false;
     this.world.ctx.inventory(this.world.state.hasKey && !this.world.state.doorOpen ? '[ LLAVE OXIDADA ]' : '');
   }
@@ -250,8 +250,16 @@ export class Gun {
 
     const P = w._handPts;
     if (this.held) {
-      if (!w._handPalm || w._handOpen || !P) { this.release(); }
-      else {
+      const cam = w.ctx.camera;
+      if (!w._handPalm || !P) {
+        // la mano salió de la cámara: la pistola NO se cae, se queda fija respecto a la vista
+        if (this.camPos) {
+          cam.localToWorld(this.root.position.copy(this.camPos));
+          this.root.quaternion.copy(cam.quaternion).multiply(this.camQuat);
+        }
+      } else if (w.isThrow()) {
+        this.release(); // solo se suelta al lanzarla (o con el botón SOLTAR)
+      } else {
         // orientación a partir de la mano: cañón hacia donde apunta el antebrazo, mezclado con la mirada
         const f = this._z.copy(P[9]).sub(P[0]).normalize();
         const camF = w.ctx.camForward(this._y);
@@ -267,6 +275,9 @@ export class Gun {
         this.root.quaternion.setFromRotationMatrix(this._m);
         this.root.quaternion.multiply(this._q.setFromAxisAngle(new THREE.Vector3(1, 0, 0), this.kick * 0.06));
         this.root.position.copy(w._handPalm).addScaledVector(up, -0.01);
+        // recordar la pose respecto a la cámara por si la mano sale de la imagen
+        this.camPos = cam.worldToLocal((this.camPos || new THREE.Vector3()).copy(this.root.position));
+        this.camQuat = (this.camQuat || new THREE.Quaternion()).copy(cam.quaternion).invert().multiply(this.root.quaternion);
       }
     } else if (this.falling) {
       const p = this.root.position, v = this.vel;

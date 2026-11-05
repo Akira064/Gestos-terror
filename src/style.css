@@ -36,6 +36,8 @@ html, body {
 .btn.small { font-size: 12px; letter-spacing: 1px; padding: 6px 10px; }
 #btnCrouch { position: fixed; left: calc(max(22px, env(safe-area-inset-left)) + 146px); bottom: max(28px, env(safe-area-inset-bottom));
   width: 84px; height: 54px; font-size: 12px; padding: 0; touch-action: none; }
+#btnDrop { position: fixed; left: calc(max(22px, env(safe-area-inset-left)) + 146px); bottom: calc(max(28px, env(safe-area-inset-bottom)) + 66px);
+  width: 84px; height: 54px; font-size: 12px; padding: 0; touch-action: none; background: #102a14; border-color: #2a7a32; }
 #btnCrouch.on { background: #4a1612; border-color: #c04030; }
 #btnDebug { position: fixed; top: 10px; right: max(12px, env(safe-area-inset-right)); }
 #btnRecenter { position: fixed; top: 46px; right: max(12px, env(safe-area-inset-right)); }

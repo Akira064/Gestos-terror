@@ -85,6 +85,7 @@ const world = new World(scene, {
   onShock: () => { recoil = 0.25; },
   camYaw: () => GyroLook.yawOf(camera.quaternion, new THREE.Vector3()),
   camForward: (out) => camera.getWorldDirection(out),
+  camera,
   onWin: () => {
     running = false;
     const best = Math.min(elapsed, parseFloat(localStorage.getItem('gt_best') || 'Infinity'));
@@ -92,7 +93,7 @@ const world = new World(scene, {
     $('endTime').textContent = fmt(elapsed);
     $('endBest').textContent = 'Mejor tiempo: ' + fmt(best);
     $('end').hidden = false;
-    ['hud', 'joy', 'btnCrouch', 'btnRecenter'].forEach((id) => ($(id).hidden = true));
+    ['hud', 'joy', 'btnCrouch', 'btnDrop', 'btnRecenter'].forEach((id) => ($(id).hidden = true));
     tracker.setTorch(false);
   },
 });
@@ -265,6 +266,7 @@ function frame(now) {
 
     $('timer').textContent = fmt(elapsed);
     $('hint').textContent = hovered ? hovered.hint() : '';
+    $('btnDrop').hidden = !world.handBusy();
   }
 
   post.render(scene, camera, dt, now / 1000);
@@ -319,6 +321,10 @@ $('btnStart').addEventListener('click', async () => {
 });
 
 $('btnDebug').addEventListener('click', () => debug.toggle());
+$('btnDrop').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (world.dropHeld()) vibrate(20);
+});
 $('btnCrouch').addEventListener('pointerdown', (e) => {
   e.preventDefault();
   crouched = !crouched;

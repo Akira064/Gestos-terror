@@ -203,6 +203,22 @@ export class World {
     this._handOpen = open;
   }
 
+  // Lanzar: abrir la mano mientras la mueves rápido
+  isThrow() {
+    return !!(this._handPalm && this._handOpen && this._handVel.length() > (this.throwSpeed || 1.0));
+  }
+
+  // Botón SOLTAR: deja caer lo que lleves, sin impulso
+  dropHeld() {
+    const zero = new THREE.Vector3();
+    if (this.gun && this.gun.held) this.gun.release(zero);
+    else if (this.balls && this.balls.held) this.balls.release(zero);
+    else if (this.plushHeld) this.releasePlush(zero);
+    else return false;
+    this.ctx.sfx.play('grab');
+    return true;
+  }
+
   handBusy() {
     return !!(this.plushHeld || (this.balls && this.balls.held) || (this.gun && this.gun.held));
   }
@@ -217,10 +233,10 @@ export class World {
     this.ctx.vibrate(35);
   }
 
-  releasePlush() {
+  releasePlush(vel = this._handVel) {
     this.plushHeld = false;
     this.plushFalling = true;
-    this.plushVel.copy(this._handVel).clampLength(0, 5);
+    this.plushVel.copy(vel).clampLength(0, 5);
     this.itPlush.disabled = false;
   }
 
@@ -236,10 +252,14 @@ export class World {
     this.plushSquash.scale.set(1 + s * 0.55, 1 - s, 1 + s * 0.55);
 
     if (this.plushHeld) {
-      if (!this._handPalm || this._handOpen) { this.releasePlush(); }
+      if (!this._handPalm) {
+        // la mano salió de la cámara: el peluche se queda donde estaba respecto a la vista
+        if (this._plushCam) this.ctx.camera.localToWorld(this.plush.position.copy(this._plushCam));
+      } else if (this._handOpen) { this.releasePlush(); }
       else {
         // el peluche cuelga de la mano
         this.plush.position.copy(this._handPalm).add(this._po || (this._po = new THREE.Vector3(0, -0.15, 0)));
+        this._plushCam = this.ctx.camera.worldToLocal((this._plushCam || new THREE.Vector3()).copy(this.plush.position));
         // que mire hacia ti (giro por el camino más corto)
         let dy = this.ctx.camYaw() + Math.PI - this.plush.rotation.y;
         dy = Math.atan2(Math.sin(dy), Math.cos(dy));

@@ -64,11 +64,11 @@ export class Balls {
     w.ctx.vibrate(25);
   }
 
-  release() {
+  release(vel = this.world._handVel) {
     const b = this.held;
     if (!b) return;
     b.held = false;
-    b.vel.copy(this.world._handVel).clampLength(0, 6);
+    b.vel.copy(vel).clampLength(0, 6);
     b.item.disabled = false;
     b.ignoreHand = 0.3; // que la palma no la empuje al soltarla
     this.held = null;
@@ -211,9 +211,13 @@ export class Balls {
     // pelota en la mano: sigue a la palma y se aplasta según lo cerrado que esté el puño
     const b = this.held;
     if (b) {
-      if (!palm || w._handOpen) this.release();
+      if (!palm) {
+        // la mano salió de la cámara: la pelota sigue en su sitio respecto a la vista
+        if (b.camLocal) w.ctx.camera.localToWorld(b.pos.copy(b.camLocal));
+      } else if (w._handOpen) this.release();
       else {
         b.pos.copy(palm);
+        b.camLocal = w.ctx.camera.worldToLocal((b.camLocal || new THREE.Vector3()).copy(palm));
         b.sTarget = w._squeeze * 0.5;
         b.axis.lerp(w._palmNormal || UP, 0.3).normalize();
         if (b.s > 0.3 && this._squeakT <= 0) { w.ctx.sfx.play('squeak'); this._squeakT = 0.5; }
