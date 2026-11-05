@@ -95,7 +95,7 @@ export class DebugPanel {
       `pose     ${v.pose || '-'}`,
       `pinza    ${f(v.pinch)} < ${f(th.pinch)} ${mark(v.pinch < th.pinch)}`,
       `apertura ${f(v.open)}  puño<${f(th.fist)} abierta>${f(th.open)}`,
-      `vel      ${f(v.speed)} m/s (golpe>${f(th.punch)}) ${mark(v.speed > th.punch)}`,
+      `golpe    ${f(v.speed)} pico ${f(v.peak)} m/s (grieta>${f(th.punch * 0.5)} rompe>${f(th.punch)})`,
       `bajada P ${f(v.pinchDrop, 3)} / ${f(th.pull, 3)}`,
       `bajada F ${f(v.fistDrop, 3)} / ${f(th.lever, 3)}`,
       `giro     ${f(v.twist, 0)}º / ${f(th.twist, 0)}º`,

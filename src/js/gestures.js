@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 const DEG = Math.PI / 180;
-const TH_KEY = 'gt_thresholds_v2';
+const TH_KEY = 'gt_thresholds_v3';
 
 export const DEFAULT_TH = {
   pinch: 0.36,      // distancia pulgar-índice / tamaño palma para "pinza"
@@ -10,7 +10,7 @@ export const DEFAULT_TH = {
   open: 1.7,        // apertura por encima = mano abierta
   pull: 0.06,       // metros que hay que bajar la pinza (cuerda)
   lever: 0.08,      // metros que hay que bajar el puño (palanca)
-  punch: 0.9,       // m/s del puño para romper
+  punch: 0.7,       // m/s del puño para romper de un golpe (la mitad agrieta)
   grabWin: 0.9,     // s entre mano abierta y puño para agarrar
   twist: 60,        // grados de giro de muñeca (llave)
   camFov: 66,       // FOV real de la cámara trasera a lo largo de la altura de la imagen (vertical)
@@ -76,7 +76,9 @@ export class HandGestures {
     this.th = th;
     this.fImg = Array.from({ length: 42 }, () => new OneEuro(1.6, 6));
     this.fW = Array.from({ length: 63 }, () => new OneEuro(1.6, 25));
-    this.fDepth = new OneEuro(1.2, 1.5);
+    this.fDepth = new OneEuro(2.0, 6);
+    this.hist = []; // historial de posiciones para medir golpes
+    this.peak = 0;
     this.img = Array.from({ length: 21 }, () => new THREE.Vector2());
     this.W = Array.from({ length: 21 }, () => new THREE.Vector3());
     this.palmCam = new THREE.Vector3();   // posición objetivo (sin colisiones) en espacio cámara del juego
@@ -103,6 +105,9 @@ export class HandGestures {
     this.fistStartY = 0;
     this.lastOpenT = -1e9;
     this.lastPunchT = -1e9;
+    this.lastFistT = -1e9;
+    this.hist = [];
+    this.swing = 0;
     this.twistAcc = 0;
     this.prevVp = null;
     this.hoverId = null;
@@ -169,7 +174,15 @@ export class HandGestures {
     } else this.vel.set(0, 0, 0);
     this.prevPalm.copy(this.palmCam);
     this.hasPrev = true;
-    const speed = this.vel.length();
+    // Velocidad de golpe: el mayor desplazamiento en los últimos 0,25 s (no se pierde por el suavizado)
+    this.hist.push({ t: nowS, p: this.palmCam.clone() });
+    while (this.hist.length && nowS - this.hist[0].t > 0.25) this.hist.shift();
+    let speed = 0;
+    for (const h of this.hist) {
+      const ht = nowS - h.t;
+      if (ht >= 0.05) speed = Math.max(speed, h.p.distanceTo(this.palmCam) / ht);
+    }
+    this.peak = Math.max(speed, this.peak * Math.pow(0.5, dt));
 
     // Giro de muñeca: ángulo acumulado de la línea de nudillos alrededor del eje del antebrazo
     if (hoverId !== this.hoverId) { this.twistAcc = 0; this.prevVp = null; this.hoverId = hoverId; }
@@ -194,6 +207,7 @@ export class HandGestures {
     const isOpen = !this.fistActive && !this.pinchActive && open > th.open;
     this.pose = this.fistActive ? 'PUÑO' : this.pinchActive ? 'PINZA' : isOpen ? 'ABIERTA' : 'media';
     if (isOpen) this.lastOpenT = nowS;
+    if (this.fistActive) this.lastFistT = nowS;
 
     // Pinza y bajar
     if (this.pinchActive && !wasPinch) { this.pinchStartY = this.palmCam.y; this.pullFired = false; }
@@ -208,13 +222,24 @@ export class HandGestures {
     }
     this.fistDrop = this.fistActive ? Math.max(0, this.fistStartY - this.palmCam.y) : 0;
     if (this.fistActive && !this.leverFired && this.fistDrop > th.lever) { events.push('lever'); this.leverFired = true; }
-    if (this.fistActive && speed > th.punch && nowS - this.lastPunchT > 0.5) { events.push('punch'); this.lastPunchT = nowS; }
+    // Golpe: puño ahora o hace muy poco (la imagen movida puede romper la detección del puño)
+    const fistRecent = this.fistActive || nowS - this.lastFistT < 0.3;
+    const knockTh = th.punch * 0.5;
+    if (fistRecent && nowS - this.lastPunchT > 0.45) {
+      if (speed > th.punch) { events.push('punch'); this.lastPunchT = nowS; this.swing = 0; }
+      else if (speed > knockTh) this.swing = Math.max(this.swing || 0, speed);
+    }
+    // El golpe flojo se decide al terminar el movimiento (si no llegó a fuerte)
+    if (this.swing && speed < knockTh * 0.6) {
+      if (nowS - this.lastPunchT > 0.45) { events.push('knock'); this.lastPunchT = nowS; }
+      this.swing = 0;
+    }
 
     // Girar llave
     if (Math.abs(this.twistAcc) > th.twist * DEG) { events.push('twist'); this.twistAcc = 0; }
 
     this.v = {
-      pose: this.pose, pinch, open, speed, depth, gameDepth,
+      pose: this.pose, pinch, open, speed, peak: this.peak, depth, gameDepth,
       pinchDrop: this.pinchDrop, fistDrop: this.fistDrop,
       twist: this.twistAcc / DEG, vy: this.vel.y,
     };

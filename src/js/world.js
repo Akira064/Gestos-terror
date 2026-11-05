@@ -246,6 +246,7 @@ export class World {
       hint: () => 'VITRINA · puño y golpe rápido',
       need: () => (this.state.lightEver ? null : 'Está demasiado oscuro. Busca la luz.'),
       act: () => this.breakGlass(),
+      knock: () => this.knockGlass(), // golpe flojo: agrieta
     });
     this.itBox = this.addItem({
       id: 'box', gesture: 'grab', obj: this.caja, pad: 0.04, disabled: true,
@@ -287,6 +288,19 @@ export class World {
       s.lightEver = true;
     }
     sfx.setHum(s.lightOn ? 0.04 : 0.025);
+  }
+
+  knockGlass() {
+    if (this.state.glassBroken) return;
+    this.cracks = (this.cracks || 0) + 1;
+    this.ctx.sfx.play('crack');
+    this.ctx.vibrate(40);
+    if (this.cracks >= 3) { this.breakGlass(); return; }
+    // el cristal se ve cada vez más agrietado
+    this.glass.material.opacity = 0.22 + this.cracks * 0.12;
+    this.glass.material.color.set(this.cracks === 1 ? 0xb8e4ea : 0xd8f0f2);
+    this.glassEdges.material.color.set(0xffffff);
+    this.ctx.msg(this.cracks === 1 ? 'El cristal se agrieta…' : 'Está a punto de romperse…', 1.8);
   }
 
   breakGlass() {
@@ -384,7 +398,15 @@ export class World {
   }
 
   handleEvent(evt, it) {
-    if (!it || it.disabled || it.gesture !== evt) return false; // cada objeto solo acepta su gesto
+    if (!it || it.disabled) return false;
+    // Un golpe flojo es el mismo gesto (puño + golpe), solo que con menos fuerza
+    if (evt === 'knock' && it.knock) {
+      const need = it.need && it.need();
+      if (need) { this.ctx.msg(need, 2); this.ctx.sfx.play('denied'); return false; }
+      it.knock();
+      return true;
+    }
+    if (it.gesture !== evt) return false; // cada objeto solo acepta su gesto
     const need = it.need && it.need();
     if (need) { this.ctx.msg(need, 2); this.ctx.sfx.play('denied'); return false; }
     it.act();
