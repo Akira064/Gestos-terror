@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <title>Gestos Terror</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <!-- La cámara nunca se muestra: solo se usa para detectar la mano -->
+  <video id="cam" playsinline muted autoplay></video>
+
+  <div id="hud" hidden>
+    <div id="timer">00:00.0</div>
+    <div id="inv"></div>
+    <div id="handState">MANO —</div>
+    <div id="hint"></div>
+    <div id="msg"></div>
+  </div>
+
+  <div id="joy" hidden><div id="joyKnob"></div></div>
+  <button id="btnDebug" class="btn small" hidden>DEBUG</button>
+  <button id="btnRecenter" class="btn small" hidden>⟲</button>
+
+  <div id="debug" hidden>
+    <canvas id="dbgSkel" width="220" height="165"></canvas>
+    <pre id="dbgVals"></pre>
+    <div id="dbgSliders"></div>
+    <button id="dbgReset" class="btn small">Restaurar umbrales</button>
+  </div>
+
+  <div id="menu" class="screen">
+    <h1>GESTOS<br><span>TERROR</span></h1>
+    <p class="how">
+      Sujeta el móvil en horizontal con una mano.<br>
+      Pon la otra mano <b>detrás</b>, delante de la cámara trasera.<br>
+      Mira moviendo el móvil · Camina con el joystick.
+    </p>
+    <ul class="gestures">
+      <li><b>Cuerda</b> · pellizco pulgar-índice y baja</li>
+      <li><b>Palanca</b> · puño y baja</li>
+      <li><b>Romper</b> · puño y golpe rápido</li>
+      <li><b>Agarrar</b> · mano abierta que se cierra</li>
+      <li><b>Llave</b> · gira la muñeca</li>
+    </ul>
+    <button id="btnStart" class="btn">EMPEZAR</button>
+    <p id="status"></p>
+  </div>
+
+  <div id="end" class="screen" hidden>
+    <h1>HAS<br><span>ESCAPADO</span></h1>
+    <p id="endTime"></p>
+    <p id="endBest"></p>
+    <button id="btnAgain" class="btn">OTRA VEZ</button>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

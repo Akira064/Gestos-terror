@@ -1,0 +1,12 @@
+{
+  "appId": "com.gestos.terror",
+  "appName": "Gestos Terror",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#000000"
+  }
+}

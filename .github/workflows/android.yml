@@ -1,0 +1,79 @@
+name: Compilar APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Java 21 (Capacitor 7)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Dependencias
+        run: npm install --no-audit --no-fund
+
+      - name: Construir www (three.js + MediaPipe + modelo, todo local)
+        run: npm run build
+
+      - name: Crear proyecto Android
+        run: |
+          if [ ! -d android ]; then npx cap add android; fi
+
+      - name: Permisos de cámara, orientación y pantalla completa
+        run: npm run android:patch
+
+      - name: Sincronizar Capacitor
+        run: npx cap sync android
+
+      - name: Compilar APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Renombrar APK
+        run: |
+          mkdir -p dist
+          cp android/app/build/outputs/apk/debug/app-debug.apk dist/gestos-terror-${{ github.run_number }}.apk
+          ls -la dist
+
+      - name: Guardar artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: gestos-terror-apk
+          path: dist/*.apk
+
+      - name: Publicar en Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Gestos Terror (build ${{ github.run_number }})
+          body: |
+            APK de depuración compilado automáticamente desde ${{ github.sha }}.
+            Instálalo en Android (permite "orígenes desconocidos").
+          files: dist/*.apk
+          make_latest: true
