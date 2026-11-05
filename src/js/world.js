@@ -75,7 +75,7 @@ export class World {
   // ---------- mesa con peluche blando ----------
   buildPlush() {
     const wood = this.mat('wood', 0x8a6a50);
-    const tx = 1.5, tz = 1.0, topY = 0.9;
+    const tx = 1.5, tz = 1.0, topY = 1.1;
     this.tableTop = topY;
     this.tableBox = { minX: tx - 0.45, maxX: tx + 0.45, minZ: tz - 0.3, maxZ: tz + 0.3 };
     this.tableMeshes = [this.box(0.9, 0.05, 0.6, tx, topY - 0.025, tz, wood)];

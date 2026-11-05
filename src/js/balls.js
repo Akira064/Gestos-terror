@@ -124,7 +124,15 @@ export class Balls {
     const boxes = w.blockers;
     const hs = this.handSpheres;
     for (const b of this.list) {
-      if (b.held || b.asleep) continue;
+      if (b.held) continue;
+      // una pelota dormida se despierta si la toca la mano o el peluche
+      if (b.asleep) {
+        if (b.ignoreHand > 0) continue;
+        let touched = false;
+        for (const h of hs) if (b.pos.distanceTo(h.c) < b.r + h.r) { touched = true; break; }
+        if (!touched) continue;
+        this.wake(b);
+      }
       b.vel.y -= G * dt;
       b.pos.addScaledVector(b.vel, dt);
       b.grounded = false;
