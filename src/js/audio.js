@@ -167,6 +167,10 @@ export class Sfx {
         for (let i = 0; i < 7; i++) this.tone('sine', 2500 + Math.random() * 3500, 1800, 0.3 + Math.random() * 0.4, 0.08, Math.random() * 0.4);
         this.burst(0.2, 0.6, 'lowpass', 400, 100, 1);
         break;
+      case 'wind':
+        this.burst(2.8, 0.35, 'bandpass', 500, 250, 0.8);
+        this.burst(2.2, 0.2, 'bandpass', 1400, 700, 2, 0.3);
+        break;
       case 'crack':
         this.burst(0.08, 0.7, 'highpass', 2500, 4500, 1);
         this.tone('sine', 3200 + Math.random() * 1500, 2500, 0.15, 0.06);

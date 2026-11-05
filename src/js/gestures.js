@@ -2,11 +2,11 @@
 import * as THREE from 'three';
 
 const DEG = Math.PI / 180;
-const TH_KEY = 'gt_thresholds_v3';
+const TH_KEY = 'gt_thresholds_v4';
 
 export const DEFAULT_TH = {
   pinch: 0.36,      // distancia pulgar-índice / tamaño palma para "pinza"
-  fist: 1.2,        // apertura media de dedos por debajo = puño
+  fist: 1.35,       // apertura media de dedos por debajo = puño
   open: 1.7,        // apertura por encima = mano abierta
   pull: 0.06,       // metros que hay que bajar la pinza (cuerda)
   lever: 0.08,      // metros que hay que bajar el puño (palanca)
@@ -223,7 +223,9 @@ export class HandGestures {
     this.fistDrop = this.fistActive ? Math.max(0, this.fistStartY - this.palmCam.y) : 0;
     if (this.fistActive && !this.leverFired && this.fistDrop > th.lever) { events.push('lever'); this.leverFired = true; }
     // Golpe: puño ahora o hace muy poco (la imagen movida puede romper la detección del puño)
-    const fistRecent = this.fistActive || nowS - this.lastFistT < 0.3;
+    // Desde detrás la cámara ve mal las yemas: vale cualquier mano que no esté abierta ni en pinza
+    const closedish = !this.pinchActive && open < th.open;
+    const fistRecent = this.fistActive || closedish || nowS - this.lastFistT < 0.35;
     const knockTh = th.punch * 0.5;
     if (fistRecent && nowS - this.lastPunchT > 0.45) {
       if (speed > th.punch) { events.push('punch'); this.lastPunchT = nowS; this.swing = 0; }

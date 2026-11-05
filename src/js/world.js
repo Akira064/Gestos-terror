@@ -23,6 +23,7 @@ export class World {
     this.anims = [];
     this.scare = null;
     this.build();
+    this.buildWindows();
   }
 
   // ---------- helpers ----------
@@ -244,10 +245,18 @@ export class World {
     this.itGlass = this.addItem({
       id: 'glass', gesture: 'punch', obj: this.glass, pad: 0.02,
       hint: () => 'VITRINA · puño y golpe rápido',
-      need: () => (this.state.lightEver ? null : 'Está demasiado oscuro. Busca la luz.'),
       act: () => this.breakGlass(),
       knock: () => this.knockGlass(), // golpe flojo: agrieta
     });
+    this.vitrina = {
+      mesh: this.glass, edges: this.glassEdges, cracks: 0, broken: false, item: this.itGlass,
+      normal: new THREE.Vector3(1, 0, 0),
+      onBreak: () => {
+        this.state.glassBroken = true;
+        this.itBox.disabled = false;
+        this.ctx.msg('El cristal estalla. Hay una caja oxidada dentro.', 3);
+      },
+    };
     this.itBox = this.addItem({
       id: 'box', gesture: 'grab', obj: this.caja, pad: 0.04, disabled: true,
       hint: () => 'CAJA · mano abierta y cierra el puño',
@@ -256,7 +265,6 @@ export class World {
     this.itLever = this.addItem({
       id: 'lever', gesture: 'lever', obj: this.leverPivot, pad: 0.05,
       hint: () => (this.state.powerOn ? 'PALANCA · puño y tira hacia abajo' : 'PALANCA · corriente cortada'),
-      need: () => (this.state.lightEver ? null : 'Está demasiado oscuro. Busca la luz.'),
       act: () => this.pullLever(),
     });
     this.itLock = this.addItem({
@@ -265,6 +273,15 @@ export class World {
       need: () => (this.state.hasKey ? null : 'Necesitas una llave.'),
       act: () => this.turnKey(),
     });
+  }
+
+  buildWindows() {
+    this.windows = [
+      this.addWindow(-1.1, 1.5, 2.49, Math.PI),        // pared sur (detrás del inicio)
+      this.addWindow(-2.49, 1.5, -1.3, Math.PI / 2),   // pared oeste
+      this.addWindow(2.49, 1.55, 1.3, -Math.PI / 2),   // pared este
+      this.addWindow(0.69, 1.45, -8.2, -Math.PI / 2, 0.6, 0.55), // pasillo
+    ];
   }
 
   setCord(pull) {
@@ -290,43 +307,88 @@ export class World {
     sfx.setHum(s.lightOn ? 0.04 : 0.025);
   }
 
-  knockGlass() {
-    if (this.state.glassBroken) return;
-    this.cracks = (this.cracks || 0) + 1;
+  // ---------- cristales rompibles (vitrina y ventanas) ----------
+  knockPane(p) {
+    if (p.broken) return;
+    p.cracks += 1;
     this.ctx.sfx.play('crack');
     this.ctx.vibrate(40);
-    if (this.cracks >= 3) { this.breakGlass(); return; }
-    // el cristal se ve cada vez más agrietado
-    this.glass.material.opacity = 0.22 + this.cracks * 0.12;
-    this.glass.material.color.set(this.cracks === 1 ? 0xb8e4ea : 0xd8f0f2);
-    this.glassEdges.material.color.set(0xffffff);
-    this.ctx.msg(this.cracks === 1 ? 'El cristal se agrieta…' : 'Está a punto de romperse…', 1.8);
+    if (p.cracks >= 3) { this.breakPane(p); return; }
+    p.mesh.material.opacity = 0.22 + p.cracks * 0.12;
+    p.mesh.material.color.set(p.cracks === 1 ? 0xb8e4ea : 0xd8f0f2);
+    p.edges.material.color.set(0xffffff);
+    this.ctx.msg(p.cracks === 1 ? 'El cristal se agrieta…' : 'Está a punto de romperse…', 1.8);
   }
 
-  breakGlass() {
-    const { sfx, msg } = this.ctx;
-    this.state.glassBroken = true;
+  breakPane(p) {
+    if (p.broken) return;
+    p.broken = true;
+    const { sfx } = this.ctx;
     sfx.play('glass');
     this.ctx.vibratePattern([60, 30, 90]);
     this.ctx.flash('#ffffff', 0.25);
-    this.glass.visible = false;
-    this.removeCollider(this.glass);
-    this.itGlass.disabled = true;
-    this.itBox.disabled = false;
+    p.mesh.visible = false;
+    this.removeCollider(p.mesh);
+    p.item.disabled = true;
+    // trozos de cristal desde el centro del panel, saliendo hacia el jugador
+    const box = new THREE.Box3().setFromObject(p.mesh);
+    const c = box.getCenter(new THREE.Vector3());
+    const sz = box.getSize(new THREE.Vector3());
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0.05, 0.01, 0, 0.01, 0.06, 0], 3));
-    g.computeVertexNormals();
     const m = new THREE.MeshBasicMaterial({ color: 0xa8e0ea, transparent: true, opacity: 0.55, side: THREE.DoubleSide });
     for (let i = 0; i < 26; i++) {
       const sh = new THREE.Mesh(g, m);
-      sh.position.set(-2.0 + (Math.random() - 0.5) * 0.5, 0.92 + Math.random() * 0.45, 0.6 + (Math.random() - 0.5) * 0.5);
+      sh.position.set(c.x + (Math.random() - 0.5) * sz.x, c.y + (Math.random() - 0.5) * sz.y, c.z + (Math.random() - 0.5) * sz.z);
       sh.scale.setScalar(0.6 + Math.random() * 1.2);
-      sh.userData.v = new THREE.Vector3((Math.random() - 0.3) * 1.6, Math.random() * 1.2, (Math.random() - 0.5) * 1.6);
+      const v = new THREE.Vector3((Math.random() - 0.5) * 1.2, Math.random() * 1.0, (Math.random() - 0.5) * 1.2);
+      if (p.normal) v.addScaledVector(p.normal, 1.2 + Math.random());
+      sh.userData.v = v;
       sh.userData.w = new THREE.Vector3(Math.random() * 9, Math.random() * 9, Math.random() * 9);
       this.scene.add(sh);
       this.shards.push(sh);
     }
-    msg('El cristal estalla. Hay una caja oxidada dentro.', 3);
+    if (p.onBreak) p.onBreak();
+  }
+
+  knockGlass() { this.knockPane(this.vitrina); }
+  breakGlass() { this.breakPane(this.vitrina); }
+
+  addWindow(x, y, z, rotY, w = 0.8, h = 0.7) {
+    const grp = new THREE.Group();
+    grp.position.set(x, y, z);
+    grp.rotation.y = rotY;
+    this.scene.add(grp);
+    // noche detrás del cristal
+    const night = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: makeTex('night'), color: 0x8090b0, fog: false }));
+    night.position.z = 0.002;
+    grp.add(night);
+    const frame = this.mat('wood', 0x6a5040);
+    const bars = [[w + 0.1, 0.05, 0, h / 2 + 0.025], [w + 0.1, 0.05, 0, -h / 2 - 0.025], [0.05, h, -w / 2 - 0.025, 0], [0.05, h, w / 2 + 0.025, 0], [0.025, h, 0, 0], [w, 0.025, 0, 0]];
+    for (const [bw, bh, bx, by] of bars) {
+      const b = new THREE.Mesh(boxGeo(bw, bh, 0.05), frame);
+      b.position.set(bx, by, 0.025);
+      grp.add(b);
+    }
+    const pane = new THREE.Mesh(boxGeo(w, h, 0.012), new THREE.MeshLambertMaterial({ color: 0x9fd8e0, transparent: true, opacity: 0.25, depthWrite: false }));
+    pane.position.z = 0.03;
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(pane.geometry), new THREE.LineBasicMaterial({ color: 0x8fb8c0, transparent: true, opacity: 0.6 }));
+    pane.add(edges);
+    grp.add(pane);
+    grp.updateWorldMatrix(true, true);
+    this.colliders.push(pane);
+    const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(grp.quaternion);
+    const p = {
+      mesh: pane, edges, cracks: 0, broken: false, normal,
+      onBreak: () => { this.ctx.sfx.play('wind'); this.ctx.msg('Entra un aire helado por la ventana…', 2.5); },
+    };
+    p.item = this.addItem({
+      id: 'window', gesture: 'punch', obj: pane, pad: 0.04,
+      hint: () => 'VENTANA · puño y golpe rápido',
+      act: () => this.breakPane(p),
+      knock: () => this.knockPane(p),
+    });
+    return p;
   }
 
   grabBox() {

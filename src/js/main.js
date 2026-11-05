@@ -108,6 +108,8 @@ const dir = new THREE.Vector3();
 const prevPalm = new THREE.Vector3();
 const ray = new THREE.Raycaster();
 let hovered = null;
+let recentHover = null;
+let recentHoverT = -1e9;
 let contact = false;
 let lastDetMs = 0;
 let wasPresent = false;
@@ -142,7 +144,11 @@ function updateHand(nowMs, dt) {
     lastDetMs = nowMs;
     const view = { tanV: Math.tan((camera.fov * Math.PI) / 360), aspect: camera.aspect };
     const events = gestures.ingest(tracker.result, tracker.aspect, dtDet, nowMs / 1000, view, hovered ? hovered.id : null);
-    for (const e of events) world.handleEvent(e, hovered);
+    for (const e of events) {
+      // En un golpe rápido la mano puede salir un instante de la zona del objeto: vale el último tocado
+      const target = hovered || ((e === 'punch' || e === 'knock') && nowMs - recentHoverT < 450 ? recentHover : null);
+      world.handleEvent(e, target);
+    }
   }
 
   if (!present) {
@@ -198,6 +204,7 @@ function updateHand(nowMs, dt) {
   hand.group.visible = true;
 
   hovered = world.findHover([palmW, P[4], P[8], P[12]], th.hover);
+  if (hovered) { recentHover = hovered; recentHoverT = nowMs; }
 }
 
 // ---------- Bucle ----------

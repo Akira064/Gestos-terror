@@ -187,6 +187,16 @@ export function makeTex(kind) {
       noise(g, size, r, 18);
       break;
     }
+    case 'night': {
+      const grad = g.createLinearGradient(0, 0, 0, size);
+      grad.addColorStop(0, '#0a1024'); grad.addColorStop(1, '#1a2238');
+      g.fillStyle = grad; g.fillRect(0, 0, size, size);
+      for (let i = 0; i < 6; i++) { g.fillStyle = '#c8d0e0'; g.fillRect(Math.floor(r() * size), Math.floor(r() * 18), 1, 1); }
+      g.fillStyle = '#05060a';
+      for (let x = 0; x < size; x += 3) { const hgt = 4 + Math.floor(r() * 6); g.fillRect(x, size - hgt, 3, hgt); }
+      noise(g, size, r, 10);
+      break;
+    }
     case 'figure': {
       g.fillStyle = '#121010'; g.fillRect(0, 0, size, size);
       stains(g, size, r, 16, 'rgba(60,10,10,0.6)');
