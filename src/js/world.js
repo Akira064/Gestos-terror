@@ -24,6 +24,191 @@ export class World {
     this.scare = null;
     this.build();
     this.buildWindows();
+    this.buildPlush();
+  }
+
+  // ---------- mesa con peluche blando ----------
+  buildPlush() {
+    const wood = this.mat('wood', 0x8a6a50);
+    const tx = 1.5, tz = 1.0, topY = 0.9;
+    this.tableTop = topY;
+    this.tableBox = { minX: tx - 0.45, maxX: tx + 0.45, minZ: tz - 0.3, maxZ: tz + 0.3 };
+    this.box(0.9, 0.05, 0.6, tx, topY - 0.025, tz, wood);
+    for (const [lx, lz] of [[-0.4, -0.25], [0.4, -0.25], [-0.4, 0.25], [0.4, 0.25]]) {
+      this.box(0.05, topY - 0.05, 0.05, tx + lx, (topY - 0.05) / 2, tz + lz, wood, { hand: false, block: false });
+    }
+
+    // Peluche: raíz en los pies -> grupo de aplastado -> piezas
+    const fur = this.mat('fur');
+    const furLight = this.mat('fur', 0xe8c8a8);
+    const black = new THREE.MeshBasicMaterial({ color: 0x050505 });
+    this.plush = new THREE.Group();
+    this.plushSquash = new THREE.Group();
+    this.plushInner = new THREE.Group();
+    this.plush.add(this.plushSquash);
+    this.plushSquash.add(this.plushInner);
+    const part = (r, x, y, z, m = fur, sx = 1, sy = 1, sz = 1) => {
+      const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), m);
+      mesh.position.set(x, y, z);
+      mesh.scale.set(sx, sy, sz);
+      this.plushInner.add(mesh);
+      return mesh;
+    };
+    part(0.085, 0, 0.1, 0, fur, 1, 1.15, 0.9);          // cuerpo
+    part(0.05, 0, 0.1, 0.05, furLight, 1, 1.2, 0.5);     // barriga
+    part(0.068, 0, 0.225, 0);                            // cabeza
+    part(0.024, -0.05, 0.285, 0); part(0.024, 0.05, 0.285, 0); // orejas
+    part(0.028, 0, 0.21, 0.058, furLight);               // hocico
+    part(0.03, -0.085, 0.12, 0.02, fur, 0.8, 1.4, 0.8);  // brazos
+    part(0.03, 0.085, 0.12, 0.02, fur, 0.8, 1.4, 0.8);
+    part(0.034, -0.045, 0.025, 0.035);                   // piernas
+    part(0.034, 0.045, 0.025, 0.035);
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.014, 0.01), black);
+    eye.position.set(-0.026, 0.24, 0.063);
+    this.plushInner.add(eye);
+    const stitch = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.004, 0.01), new THREE.MeshBasicMaterial({ color: 0x5a1010 }));
+    stitch.position.set(0.026, 0.24, 0.063); // le falta un ojo: solo un cosido
+    stitch.rotation.z = 0.6;
+    this.plushInner.add(stitch);
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.01, 0.01), black);
+    nose.position.set(0, 0.22, 0.085);
+    this.plushInner.add(nose);
+
+    this.plush.position.set(tx - 0.1, topY, tz);
+    this.plush.rotation.y = -0.6;
+    this.scene.add(this.plush);
+
+    this.plushR = 0.14;              // radio blando
+    this.squash = 0; this.squashV = 0; this.squashTarget = 0;
+    this.squashAxis = new THREE.Vector3(0, 1, 0);
+    this.plushHeld = false;
+    this.plushVel = new THREE.Vector3();
+    this.plushFalling = false;
+    this._handPalm = null;
+    this._prevHandPalm = new THREE.Vector3();
+    this._handVel = new THREE.Vector3();
+    this._softWas = false;
+    this._squeakT = 0;
+
+    this.itPlush = this.addItem({
+      id: 'plush', gesture: 'grab', obj: this.plush, pad: 0.05,
+      hint: () => 'PELUCHE · apriétalo, o mano abierta y cierra el puño para cogerlo',
+      act: () => this.grabPlush(),
+    });
+  }
+
+  plushCenter(out) {
+    return out.set(0, 0.13, 0).applyMatrix4(this.plush.matrixWorld);
+  }
+
+  // Contacto blando: devuelve cuánto hay que empujar la mano (o null). Aplasta el peluche.
+  softTouch(palm, P) {
+    this.squashTarget = this.plushHeld ? 0.25 : 0;
+    if (this.plushHeld || !this.plush) return null;
+    this.plush.updateWorldMatrix(true, false);
+    const c = this.plushCenter(this._sc || (this._sc = new THREE.Vector3()));
+    const R = this.plushR;
+    let best = null, bd = R;
+    for (const p of [palm, P[8], P[12], P[16], P[4]]) {
+      const d = p.distanceTo(c);
+      if (d < bd) { bd = d; best = p; }
+    }
+    if (!best) {
+      if (this._softWas) this._softWas = false;
+      return null;
+    }
+    const k = (R - bd) / R;                       // 0 en la superficie, 1 en el centro
+    this.squashTarget = Math.min(0.6, k * 1.1);
+    const dir = this._sd || (this._sd = new THREE.Vector3());
+    dir.copy(c).sub(best);
+    if (dir.lengthSq() < 1e-8) dir.set(0, -1, 0);
+    dir.normalize();
+    if (dir.y > 0) dir.negate();                  // eje de aplastado apuntando "hacia arriba"
+    this.squashAxis.lerp(dir.negate(), 0.3).normalize();
+    if (!this._softWas) { this._softWas = true; this.ctx.vibrate(10); this.ctx.sfx.play('squish'); }
+    if (k > 0.45 && this._squeakT <= 0) { this.ctx.sfx.play('squeak'); this.ctx.vibrate(20); this._squeakT = 0.6; }
+    // la mano entra hasta ~55% del radio y ahí se queda apoyada
+    const minD = R * 0.45;
+    if (bd < minD) {
+      const push = new THREE.Vector3().copy(best).sub(c);
+      if (push.lengthSq() < 1e-8) push.set(0, 1, 0);
+      return push.normalize().multiplyScalar(minD - bd);
+    }
+    return null;
+  }
+
+  setHand(palm, open) {
+    if (palm) {
+      if (this._handPalm) this._handVel.lerp(this._v1 = (this._v1 || new THREE.Vector3()).copy(palm).sub(this._prevHandPalm).divideScalar(Math.max(this._dt || 0.016, 1e-3)), 0.4);
+      this._prevHandPalm.copy(palm);
+    }
+    this._handPalm = palm;
+    this._handOpen = open;
+  }
+
+  grabPlush() {
+    if (this.plushHeld) return;
+    this.plushHeld = true;
+    this.plushFalling = false;
+    this.itPlush.disabled = true;
+    this.ctx.sfx.play('squish');
+    this.ctx.sfx.play('squeak');
+    this.ctx.vibrate(35);
+  }
+
+  releasePlush() {
+    this.plushHeld = false;
+    this.plushFalling = true;
+    this.plushVel.copy(this._handVel).clampLength(0, 5);
+    this.itPlush.disabled = false;
+  }
+
+  updatePlush(dt) {
+    this._squeakT -= dt;
+    // muelle amortiguado: se aplasta y rebota al soltar
+    const a = (this.squashTarget - this.squash) * 220 - this.squashV * 14;
+    this.squashV += a * dt;
+    this.squash = Math.max(-0.25, Math.min(0.65, this.squash + this.squashV * dt));
+    const q = this.plushSquash.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), this.squashAxis);
+    this.plushInner.quaternion.copy(q).invert();
+    const s = this.squash;
+    this.plushSquash.scale.set(1 + s * 0.55, 1 - s, 1 + s * 0.55);
+
+    if (this.plushHeld) {
+      if (!this._handPalm || this._handOpen) { this.releasePlush(); }
+      else {
+        // el peluche cuelga de la mano
+        this.plush.position.copy(this._handPalm).add(this._po || (this._po = new THREE.Vector3(0, -0.15, 0)));
+        // que mire hacia ti (giro por el camino más corto)
+        let dy = this.ctx.camYaw() + Math.PI - this.plush.rotation.y;
+        dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+        this.plush.rotation.y += dy * Math.min(1, dt * 4);
+      }
+    } else if (this.plushFalling) {
+      const p = this.plush.position, v = this.plushVel;
+      v.y -= 9.8 * dt;
+      p.addScaledVector(v, dt);
+      // límites de la habitación / pasillo
+      const inCorr = p.z < -2.45;
+      const xm = inCorr ? 0.55 : 2.35;
+      if (p.x < -xm) { p.x = -xm; v.x *= -0.3; }
+      if (p.x > xm) { p.x = xm; v.x *= -0.3; }
+      if (p.z > 2.35) { p.z = 2.35; v.z *= -0.3; }
+      if (p.z < -12.5) { p.z = -12.5; v.z *= -0.3; }
+      if (!inCorr && p.z < -2.35 && Math.abs(p.x) > 0.5) { p.z = -2.35; v.z *= -0.3; }
+      const tb = this.tableBox;
+      const overTable = p.x > tb.minX && p.x < tb.maxX && p.z > tb.minZ && p.z < tb.maxZ;
+      const ground = overTable && p.y >= this.tableTop - 0.05 ? this.tableTop : 0;
+      if (p.y <= ground) {
+        p.y = ground;
+        const impact = -v.y;
+        if (impact > 0.6) { this.squashV += impact * 2.2; this.ctx.sfx.play('plop'); }
+        v.y = impact > 1.2 ? impact * 0.25 : 0;
+        v.x *= 0.5; v.z *= 0.5;
+        if (v.y === 0 && v.lengthSq() < 0.01) { this.plushFalling = false; v.set(0, 0, 0); }
+      }
+    }
+    this.itPlush.refresh();
   }
 
   // ---------- helpers ----------
@@ -490,6 +675,8 @@ export class World {
   // ---------- actualización por frame ----------
   update(dt, player, hovered, g) {
     this.time += dt;
+    this._dt = dt;
+    if (this.plush) this.updatePlush(dt);
     const s = this.state;
     const t = this.time;
     const { sfx } = this.ctx;

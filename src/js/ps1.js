@@ -187,6 +187,13 @@ export function makeTex(kind) {
       noise(g, size, r, 18);
       break;
     }
+    case 'fur': {
+      g.fillStyle = '#7a5434'; g.fillRect(0, 0, size, size);
+      for (let i = 0; i < 90; i++) { g.fillStyle = r() < 0.5 ? 'rgba(40,25,10,0.5)' : 'rgba(160,120,80,0.4)'; g.fillRect(Math.floor(r() * size), Math.floor(r() * size), 1, 2); }
+      g.fillStyle = 'rgba(60,20,10,0.6)'; g.fillRect(14, 0, 1, size); // costura
+      noise(g, size, r, 24);
+      break;
+    }
     case 'night': {
       const grad = g.createLinearGradient(0, 0, 0, size);
       grad.addColorStop(0, '#0a1024'); grad.addColorStop(1, '#1a2238');

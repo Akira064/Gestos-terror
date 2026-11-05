@@ -82,6 +82,7 @@ const world = new World(scene, {
   flash: (c, a) => post.doFlash(c, a),
   inventory: (t) => { $('inv').textContent = t; },
   onShock: () => { recoil = 0.25; },
+  camYaw: () => GyroLook.yawOf(camera.quaternion, new THREE.Vector3()),
   onWin: () => {
     running = false;
     const best = Math.min(elapsed, parseFloat(localStorage.getItem('gt_best') || 'Infinity'));
@@ -157,6 +158,8 @@ function updateHand(nowMs, dt) {
     hand.group.visible = false;
     hovered = null;
     contact = false;
+    world.setHand(null, true);
+    world.squashTarget = world.plushHeld ? 0.25 : 0;
     sfx.setScrape(0);
     $('handState').textContent = 'MANO —';
     $('handState').classList.remove('on');
@@ -190,6 +193,10 @@ function updateHand(nowMs, dt) {
     palmW.add(tmp);
   }
 
+  // Peluche: contacto blando (se aplasta, la mano entra un poco)
+  const soft = world.softTouch(palmW, P);
+  if (soft) { for (let i = 0; i < 21; i++) P[i].add(soft); palmW.add(soft); }
+
   // Vibración al tocar y roce al arrastrar
   const slide = prevPalm.distanceTo(palmW) / Math.max(dt, 1e-3);
   prevPalm.copy(palmW);
@@ -203,6 +210,7 @@ function updateHand(nowMs, dt) {
   hand.update(P, th.handScale);
   hand.group.visible = true;
 
+  world.setHand(palmW, gestures.pose === 'ABIERTA');
   hovered = world.findHover([palmW, P[4], P[8], P[12]], th.hover);
   if (hovered) { recentHover = hovered; recentHoverT = nowMs; }
 }

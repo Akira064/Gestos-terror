@@ -167,6 +167,17 @@ export class Sfx {
         for (let i = 0; i < 7; i++) this.tone('sine', 2500 + Math.random() * 3500, 1800, 0.3 + Math.random() * 0.4, 0.08, Math.random() * 0.4);
         this.burst(0.2, 0.6, 'lowpass', 400, 100, 1);
         break;
+      case 'squish':
+        this.burst(0.14, 0.35, 'lowpass', 500, 150, 1);
+        this.tone('sine', 200, 140, 0.12, 0.05);
+        break;
+      case 'squeak':
+        this.tone('sine', 900, 1500, 0.12, 0.09);
+        this.tone('sine', 1500, 1100, 0.14, 0.07, 0.12);
+        break;
+      case 'plop':
+        this.burst(0.18, 0.45, 'lowpass', 350, 90, 1);
+        break;
       case 'wind':
         this.burst(2.8, 0.35, 'bandpass', 500, 250, 0.8);
         this.burst(2.2, 0.2, 'bandpass', 1400, 700, 2, 0.3);
