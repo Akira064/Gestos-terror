@@ -167,6 +167,29 @@ export class Sfx {
         for (let i = 0; i < 7; i++) this.tone('sine', 2500 + Math.random() * 3500, 1800, 0.3 + Math.random() * 0.4, 0.08, Math.random() * 0.4);
         this.burst(0.2, 0.6, 'lowpass', 400, 100, 1);
         break;
+      case 'gunshot':
+        this.burst(0.35, 1.0, 'lowpass', 5000, 300, 0.7);
+        this.burst(0.05, 0.9, 'highpass', 2000, 2000, 0.7);
+        this.tone('sine', 110, 35, 0.45, 0.9);
+        this.tone('square', 70, 30, 0.2, 0.25);
+        this.burst(1.6, 0.22, 'lowpass', 900, 120, 0.7, 0.12); // eco en la habitación
+        break;
+      case 'dryfire':
+        this.burst(0.03, 0.5, 'highpass', 3000, 3000, 2);
+        this.tone('square', 1200, 900, 0.03, 0.06);
+        break;
+      case 'reload':
+        for (let i = 0; i < 6; i++) this.burst(0.025, 0.35, 'bandpass', 2600, 2400, 4, i * 0.06);
+        this.burst(0.06, 0.6, 'bandpass', 1200, 800, 3, 0.42);
+        break;
+      case 'ricochet':
+        this.tone('sine', 2600, 900, 0.35, 0.05);
+        this.burst(0.08, 0.4, 'bandpass', 1500, 700, 2);
+        break;
+      case 'clunk':
+        this.burst(0.12, 0.6, 'lowpass', 900, 200, 1);
+        this.tone('triangle', 400, 250, 0.1, 0.08);
+        break;
       case 'bounce':
         this.tone('sine', 300 + Math.random() * 120, 180, 0.08, 0.1);
         this.burst(0.05, 0.25, 'lowpass', 800, 300, 1);

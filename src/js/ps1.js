@@ -187,6 +187,13 @@ export function makeTex(kind) {
       noise(g, size, r, 18);
       break;
     }
+    case 'gunmetal': {
+      g.fillStyle = '#4a4e56'; g.fillRect(0, 0, size, size);
+      for (let i = 0; i < 14; i++) { g.fillStyle = 'rgba(220,225,235,0.25)'; g.fillRect(Math.floor(r() * size), Math.floor(r() * size), 1 + Math.floor(r() * 6), 1); }
+      g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, 20, size, 3);
+      noise(g, size, r, 16);
+      break;
+    }
     case 'ball': {
       g.fillStyle = '#e8e8e8'; g.fillRect(0, 0, size, size);
       g.fillStyle = '#9a9a9a'; g.fillRect(0, 12, size, 8);   // franja para ver cómo rueda

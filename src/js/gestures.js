@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 const DEG = Math.PI / 180;
-const TH_KEY = 'gt_thresholds_v5';
+const TH_KEY = 'gt_thresholds_v6';
 
 export const DEFAULT_TH = {
   pinch: 0.36,      // distancia pulgar-índice / tamaño palma para "pinza"
@@ -19,6 +19,7 @@ export const DEFAULT_TH = {
   handScale: 1.25,  // tamaño de la mano 3D
   reach: 1.15,      // alcance lateral (para llegar a los bordes)
   hover: 0.1,       // distancia para considerar la mano "encima" de un objeto
+  trigger: 0.18,    // cuánto tiene que doblarse el índice (rápido) para disparar
 };
 
 export const TH_SPEC = [
@@ -36,6 +37,7 @@ export const TH_SPEC = [
   ['handScale', 'Tamaño mano', 0.6, 2, 0.05],
   ['reach', 'Alcance', 0.8, 1.6, 0.01],
   ['hover', 'Distancia obj.', 0.03, 0.25, 0.005],
+  ['trigger', 'Gatillo', 0.06, 0.5, 0.01],
 ];
 
 export function loadThresholds() {
@@ -105,6 +107,10 @@ export class HandGestures {
     this.fistStartY = 0;
     this.lastOpenT = -1e9;
     this.openHist = [];
+    this.idxHist = [];
+    this.trigArmed = true;
+    this.trigMin = 9;
+    this.lastTrigT = -1e9;
     this.lastPunchT = -1e9;
     this.lastFistT = -1e9;
     this.hist = [];
@@ -244,11 +250,27 @@ export class HandGestures {
       this.swing = 0;
     }
 
+    // Gatillo: el índice se dobla deprisa (respecto a su máximo de los últimos 0,3 s)
+    const idx = W[8].distanceTo(W[5]) / palmSize;
+    this.idxHist.push({ t: nowS, e: idx });
+    while (this.idxHist.length && nowS - this.idxHist[0].t > 0.3) this.idxHist.shift();
+    let idxMax = 0;
+    for (const h of this.idxHist) idxMax = Math.max(idxMax, h.e);
+    this.trigMin = Math.min(this.trigMin, idx);
+    if (!this.trigArmed && idx > this.trigMin + th.trigger * 0.6) this.trigArmed = true; // soltar el gatillo rearma
+    if (this.trigArmed && idxMax - idx > th.trigger && nowS - this.lastTrigT > 0.18) {
+      events.push('trigger');
+      this.lastTrigT = nowS;
+      this.trigArmed = false;
+      this.trigMin = idx;
+    }
+    this.idx = idx;
+
     // Girar llave
     if (Math.abs(this.twistAcc) > th.twist * DEG) { events.push('twist'); this.twistAcc = 0; }
 
     this.v = {
-      pose: this.pose, pinch, open, maxOpen: this.maxOpen, speed, peak: this.peak, depth, gameDepth,
+      pose: this.pose, pinch, open, maxOpen: this.maxOpen, idx, idxPull: idxMax - idx, speed, peak: this.peak, depth, gameDepth,
       pinchDrop: this.pinchDrop, fistDrop: this.fistDrop,
       twist: this.twistAcc / DEG, vy: this.vel.y,
     };

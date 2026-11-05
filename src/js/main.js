@@ -84,6 +84,7 @@ const world = new World(scene, {
   inventory: (t) => { $('inv').textContent = t; },
   onShock: () => { recoil = 0.25; },
   camYaw: () => GyroLook.yawOf(camera.quaternion, new THREE.Vector3()),
+  camForward: (out) => camera.getWorldDirection(out),
   onWin: () => {
     running = false;
     const best = Math.min(elapsed, parseFloat(localStorage.getItem('gt_best') || 'Infinity'));
@@ -152,6 +153,11 @@ function updateHand(nowMs, dt) {
     const view = { tanV: Math.tan((camera.fov * Math.PI) / 360), aspect: camera.aspect };
     const events = gestures.ingest(tracker.result, tracker.aspect, dtDet, nowMs / 1000, view, hovered ? hovered.id : null);
     for (const e of events) {
+      // con la Magnum en la mano: índice = disparar, girar la muñeca = recargar
+      if (world.gun && world.gun.held && (e === 'trigger' || e === 'twist')) {
+        if (e === 'trigger') world.gun.trigger(); else world.gun.reload();
+        continue;
+      }
       // En un golpe rápido la mano puede salir un instante de la zona del objeto: vale el último tocado
       const target = hovered || ((e === 'punch' || e === 'knock' || e === 'grab') && nowMs - recentHoverT < 450 ? recentHover : null);
       world.handleEvent(e, target);

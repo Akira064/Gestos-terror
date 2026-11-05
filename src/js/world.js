@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { ps1Mat, boxGeo, makeTex, makeTextTex } from './ps1.js';
 import { Balls } from './balls.js';
+import { Gun } from './gun.js';
 
 const PLAYER_R = 0.24;
 
@@ -140,6 +141,8 @@ export class World {
 
     // 10 pelotas en la mitad derecha de la mesa
     this.balls = new Balls(this, { x0: tx - 0.02, z0: tz - 0.08, topY });
+    // revólver Magnum tumbado en el borde de la mesa más cercano a ti
+    this.gun = new Gun(this, tx + 0.2, topY + 0.018, tz + 0.24);
 
     this.itPlush = this.addItem({
       id: 'plush', gesture: 'grab', obj: this.plush, pad: 0.05,
@@ -200,8 +203,12 @@ export class World {
     this._handOpen = open;
   }
 
+  handBusy() {
+    return !!(this.plushHeld || (this.balls && this.balls.held) || (this.gun && this.gun.held));
+  }
+
   grabPlush() {
-    if (this.plushHeld || (this.balls && this.balls.held)) return;
+    if (this.handBusy()) return;
     this.plushHeld = true;
     this.plushFalling = false;
     this.itPlush.disabled = true;
@@ -733,6 +740,7 @@ export class World {
     if (this.plush) this.updatePlush(dt);
     for (const m of this.mixers) m.update(dt);
     if (this.balls) this.balls.update(dt);
+    if (this.gun) this.gun.update(dt);
     const s = this.state;
     const t = this.time;
     const { sfx } = this.ctx;

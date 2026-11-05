@@ -99,6 +99,7 @@ export class DebugPanel {
       `bajada P ${f(v.pinchDrop, 3)} / ${f(th.pull, 3)}`,
       `bajada F ${f(v.fistDrop, 3)} / ${f(th.lever, 3)}`,
       `giro     ${f(v.twist, 0)}º / ${f(th.twist, 0)}º`,
+      `gatillo  índice ${f(v.idx)} tirón ${f(v.idxPull)} / ${f(th.trigger)}`,
       `prof     real ${f(v.depth)} m  juego ${f(v.gameDepth)}`,
       `contacto ${info.contact ? 'SÍ' : 'no'}  objeto ${info.hover || '-'}`,
       `evento   ${info.now - this._lastEvtT < 1.5 ? this._lastEvt : ''}`,

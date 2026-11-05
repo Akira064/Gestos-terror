@@ -54,7 +54,7 @@ export class Balls {
 
   grab(b) {
     const w = this.world;
-    if (this.held || w.plushHeld) return;
+    if (w.handBusy()) return;
     this.held = b;
     b.held = true;
     b.vel.set(0, 0, 0);
