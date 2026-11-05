@@ -360,7 +360,7 @@ export class World {
     S.add(this.bulbLight);
 
     this.cordTop = 2.6;
-    this.cordLen = 0.85;
+    this.cordLen = 1.0;
     this.cord = new THREE.Mesh(new THREE.BoxGeometry(0.008, 1, 0.008), this.mat('cloth', 0xbbbbbb));
     this.cordHandle = new THREE.Mesh(boxGeo(0.025, 0.07, 0.025), this.mat('wood', 0xddccaa));
     S.add(this.cord, this.cordHandle);
@@ -368,15 +368,15 @@ export class World {
     this.setCord(0);
 
     // ---------- Vitrina con caja ----------
-    this.pedestal = this.box(0.6, 0.9, 0.6, -2.0, 0.45, 0.6, wood);
+    this.pedestal = this.box(0.6, 1.05, 0.6, -2.0, 0.525, 0.6, wood);
     const glassMat = new THREE.MeshLambertMaterial({ color: 0x9fd8e0, transparent: true, opacity: 0.22, depthWrite: false });
-    this.glass = this.box(0.52, 0.46, 0.52, -2.0, 1.13, 0.6, glassMat, { block: false });
+    this.glass = this.box(0.52, 0.46, 0.52, -2.0, 1.28, 0.6, glassMat, { block: false });
     this.glassEdges = new THREE.LineSegments(
       new THREE.EdgesGeometry(this.glass.geometry),
       new THREE.LineBasicMaterial({ color: 0x8fb8c0, transparent: true, opacity: 0.6 })
     );
     this.glass.add(this.glassEdges);
-    this.caja = this.box(0.16, 0.11, 0.16, -2.0, 0.96, 0.6, this.mat('rust', 0xcc8866), { block: false });
+    this.caja = this.box(0.16, 0.11, 0.16, -2.0, 1.11, 0.6, this.mat('rust', 0xcc8866), { block: false });
     const lid = new THREE.Mesh(boxGeo(0.17, 0.025, 0.17), this.mat('metal', 0xaa7744));
     lid.position.y = 0.065;
     this.caja.add(lid);
@@ -406,12 +406,12 @@ export class World {
     this.door = this.box(1.0, 2.05, 0.08, 0.5, 1.025, 0, this.mat('door'), { block: false, parent: this.doorPivot });
     this.doorBlocker = { box: new THREE.Box3(new THREE.Vector3(-0.55, 0, -2.7), new THREE.Vector3(0.55, 2.1, -2.5)), on: true };
     this.blockers.push(this.doorBlocker);
-    this.lock = this.box(0.08, 0.15, 0.04, 0.86, 1.0, 0.06, metal, { block: false, parent: this.doorPivot });
+    this.lock = this.box(0.08, 0.15, 0.04, 0.86, 1.15, 0.06, metal, { block: false, parent: this.doorPivot });
     const hole = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.035, 0.01), new THREE.MeshBasicMaterial({ color: 0x000000 }));
     hole.position.set(0, -0.02, 0.021);
     this.lock.add(hole);
     const handle = new THREE.Mesh(boxGeo(0.1, 0.025, 0.04), metal);
-    handle.position.set(0.82, 1.12, 0.08);
+    handle.position.set(0.82, 1.27, 0.08);
     this.doorPivot.add(handle);
 
     // llave (visible al acercarla a la cerradura)

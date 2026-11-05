@@ -98,10 +98,10 @@ const world = new World(scene, {
 
 const player = new THREE.Vector3(0, 0, 1.8);
 // Agacharse: altura de los ojos de pie / agachado
-const EYE_STAND = 1.6, EYE_CROUCH = 0.95;
+const EYE_STAND = 1.45, EYE_CROUCH = 0.9;
 let crouched = false;
 let eye = EYE_STAND;
-camera.position.set(player.x, 1.6, player.z);
+camera.position.set(player.x, EYE_STAND, player.z);
 
 // ---------- Mano: posición, colisión, contacto ----------
 const PALM = [0, 5, 9, 13, 17];
