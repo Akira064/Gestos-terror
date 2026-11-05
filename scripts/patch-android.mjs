@@ -50,6 +50,19 @@ const build = parseInt(process.env.BUILD_NUMBER || '1', 10);
 if (fs.existsSync(gradlePath)) {
   let gr = fs.readFileSync(gradlePath, 'utf8');
   gr = gr.replace(/versionCode\s+\d+/, `versionCode ${build}`).replace(/versionName\s+"[^"]*"/, `versionName "1.0.${build}"`);
+  // Firma fija del repo (signing/debug.keystore) para la build debug
+  if (!gr.includes('gestos-signing')) {
+    gr = gr.replace(/android\s*\{/, `android {
+    // gestos-signing
+    signingConfigs {
+        debug {
+            storeFile file("\${rootDir}/../signing/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }`);
+  }
   fs.writeFileSync(gradlePath, gr);
   console.log(`[patch] versionCode ${build}, versionName 1.0.${build}`);
 }

@@ -54,11 +54,6 @@ jobs:
       - name: Sincronizar Capacitor
         run: npx cap sync android
 
-      - name: Clave de firma fija (permite actualizar sin desinstalar)
-        run: |
-          mkdir -p ~/.android
-          cp signing/debug.keystore ~/.android/debug.keystore
-
       - name: Compilar APK
         working-directory: android
         env:
@@ -66,6 +61,14 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Comprobar firma fija
+        run: |
+          APKSIGNER=$(ls $ANDROID_HOME/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | tee certs.txt
+          EXPECTED=$(keytool -list -v -keystore signing/debug.keystore -storepass android | grep 'SHA256:' | head -1 | sed 's/.*SHA256: //; s/://g' | tr 'A-F' 'a-f')
+          echo "Esperado: $EXPECTED"
+          grep -qi "$EXPECTED" certs.txt
 
       - name: Renombrar APK
         run: |
