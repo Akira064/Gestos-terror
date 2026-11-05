@@ -22,6 +22,7 @@ En el repo: **Settings → Actions → General → Workflow permissions → Read
 |---|---|
 | Mirar | Mueve el móvil (giroscopio). Arrastrar en pantalla ajusta el giro. ⟲ recentra. |
 | Moverse | Joystick abajo a la izquierda (con inercia) |
+| Agacharse | Botón AGACHAR junto al joystick (pulsa otra vez para levantarte) |
 | Encender luz | Mano en la cuerda · pinza pulgar-índice y baja |
 | Romper vitrina | Puño y golpe rápido |
 | Coger la caja | Mano abierta que se cierra en puño |
@@ -31,6 +32,10 @@ En el repo: **Settings → Actions → General → Workflow permissions → Read
 Cada objeto solo acepta su gesto. La mano no atraviesa paredes ni objetos: se queda apoyada, vibra al tocar y suena al arrastrarla.
 
 **Puzzle:** luz → romper vitrina → coger la caja (llave) → palanca (si no, la cerradura da calambre) → abrir puerta → pasillo → salida. El cronómetro guarda tu mejor tiempo.
+
+## Modelos de Blender
+
+Puedes sustituir los modelos hechos por código por los tuyos: pon archivos `.glb` en `src/models/` con el nombre del objeto (`peluche.glb`, `caja.glb`, `puerta.glb`, `monstruo.glb`…). Tamaños, orígenes y cómo exportar en [src/models/LEEME.md](src/models/LEEME.md). Al hacer push se genera un APK con ellos.
 
 ## Debug
 

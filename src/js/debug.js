@@ -94,7 +94,7 @@ export class DebugPanel {
       `flash ${info.torch ? 'ON' : 'no'}  render ${info.fps}fps`,
       `pose     ${v.pose || '-'}`,
       `pinza    ${f(v.pinch)} < ${f(th.pinch)} ${mark(v.pinch < th.pinch)}`,
-      `apertura ${f(v.open)}  puño<${f(th.fist)} abierta>${f(th.open)}`,
+      `apertura ${f(v.open)} (máx ${f(v.maxOpen)})  puño<${f(th.fist)} abierta>${f(th.open)}`,
       `golpe    ${f(v.speed)} pico ${f(v.peak)} m/s (grieta>${f(th.punch * 0.5)} rompe>${f(th.punch)})`,
       `bajada P ${f(v.pinchDrop, 3)} / ${f(th.pull, 3)}`,
       `bajada F ${f(v.fistDrop, 3)} / ${f(th.lever, 3)}`,

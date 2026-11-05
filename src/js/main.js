@@ -7,6 +7,7 @@ import { HandGestures, loadThresholds } from './gestures.js';
 import { HandModel } from './handModel.js';
 import { World } from './world.js';
 import { DebugPanel } from './debug.js';
+import { loadModels } from './models.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game');
@@ -90,12 +91,16 @@ const world = new World(scene, {
     $('endTime').textContent = fmt(elapsed);
     $('endBest').textContent = 'Mejor tiempo: ' + fmt(best);
     $('end').hidden = false;
-    ['hud', 'joy', 'btnRecenter'].forEach((id) => ($(id).hidden = true));
+    ['hud', 'joy', 'btnCrouch', 'btnRecenter'].forEach((id) => ($(id).hidden = true));
     tracker.setTorch(false);
   },
 });
 
 const player = new THREE.Vector3(0, 0, 1.8);
+// Agacharse: altura de los ojos de pie / agachado
+const EYE_STAND = 1.6, EYE_CROUCH = 0.95;
+let crouched = false;
+let eye = EYE_STAND;
 camera.position.set(player.x, 1.6, player.z);
 
 // ---------- Mano: posición, colisión, contacto ----------
@@ -147,7 +152,7 @@ function updateHand(nowMs, dt) {
     const events = gestures.ingest(tracker.result, tracker.aspect, dtDet, nowMs / 1000, view, hovered ? hovered.id : null);
     for (const e of events) {
       // En un golpe rápido la mano puede salir un instante de la zona del objeto: vale el último tocado
-      const target = hovered || ((e === 'punch' || e === 'knock') && nowMs - recentHoverT < 450 ? recentHover : null);
+      const target = hovered || ((e === 'punch' || e === 'knock' || e === 'grab') && nowMs - recentHoverT < 450 ? recentHover : null);
       world.handleEvent(e, target);
     }
   }
@@ -231,11 +236,13 @@ function frame(now) {
     elapsed = (now - startT) / 1000;
     gyro.update(camera.quaternion, 0);
     const yaw = GyroLook.yawOf(camera.quaternion, tmp);
+    motion.maxSpeed = crouched ? 0.7 : 1.5;
+    eye += ((crouched ? EYE_CROUCH : EYE_STAND) - eye) * Math.min(1, dt * 6);
     const speed = motion.update(dt, joystick, yaw, player, (x, z) => world.collide(x, z), world.lockMove);
     stepAcc += speed * dt;
     if (stepAcc > 0.65) { stepAcc = 0; sfx.play('step'); }
     const bob = Math.sin(motion.walked * 9) * 0.018 * Math.min(1, speed);
-    camera.position.set(player.x, 1.6 + bob, player.z);
+    camera.position.set(player.x, eye + bob, player.z);
     camera.updateMatrixWorld(true);
 
     updateHand(now, dt);
@@ -281,6 +288,7 @@ $('btnStart').addEventListener('click', async () => {
     status.textContent = 'Activando cámara trasera y flash…';
     await tracker.startCamera();
     await tracker.loadModel((t) => (status.textContent = t));
+    await loadModels(world, (t) => (status.textContent = t)).catch((e) => console.warn(e));
   } catch (e) {
     console.error(e);
     status.style.color = '#d06050';
@@ -290,7 +298,7 @@ $('btnStart').addEventListener('click', async () => {
     return;
   }
   $('menu').hidden = true;
-  ['hud', 'joy', 'btnDebug', 'btnRecenter'].forEach((id) => ($(id).hidden = false));
+  ['hud', 'joy', 'btnCrouch', 'btnDebug', 'btnRecenter'].forEach((id) => ($(id).hidden = false));
   gyro.needRecenter = true;
   running = true;
   startT = performance.now();
@@ -299,5 +307,13 @@ $('btnStart').addEventListener('click', async () => {
 });
 
 $('btnDebug').addEventListener('click', () => debug.toggle());
+$('btnCrouch').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  crouched = !crouched;
+  $('btnCrouch').textContent = crouched ? 'LEVANTAR' : 'AGACHAR';
+  $('btnCrouch').classList.toggle('on', crouched);
+  sfx.play('step');
+  vibrate(15);
+});
 $('btnRecenter').addEventListener('click', () => gyro.recenter(0));
 $('btnAgain').addEventListener('click', () => location.reload());

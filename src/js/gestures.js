@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 const DEG = Math.PI / 180;
-const TH_KEY = 'gt_thresholds_v4';
+const TH_KEY = 'gt_thresholds_v5';
 
 export const DEFAULT_TH = {
   pinch: 0.36,      // distancia pulgar-índice / tamaño palma para "pinza"
@@ -104,6 +104,7 @@ export class HandGestures {
     this.pinchStartY = 0;
     this.fistStartY = 0;
     this.lastOpenT = -1e9;
+    this.openHist = [];
     this.lastPunchT = -1e9;
     this.lastFistT = -1e9;
     this.hist = [];
@@ -207,6 +208,12 @@ export class HandGestures {
     const isOpen = !this.fistActive && !this.pinchActive && open > th.open;
     this.pose = this.fistActive ? 'PUÑO' : this.pinchActive ? 'PINZA' : isOpen ? 'ABIERTA' : 'media';
     if (isOpen) this.lastOpenT = nowS;
+    // apertura máxima reciente: para agarrar basta con que la mano estuviera claramente más abierta que un puño
+    this.openHist.push({ t: nowS, o: open });
+    while (this.openHist.length && nowS - this.openHist[0].t > th.grabWin) this.openHist.shift();
+    let maxOpen = 0;
+    for (const h of this.openHist) maxOpen = Math.max(maxOpen, h.o);
+    this.maxOpen = maxOpen;
     if (this.fistActive) this.lastFistT = nowS;
 
     // Pinza y bajar
@@ -218,7 +225,7 @@ export class HandGestures {
     if (this.fistActive && !wasFist) {
       this.fistStartY = this.palmCam.y;
       this.leverFired = false;
-      if (nowS - this.lastOpenT < th.grabWin) events.push('grab');
+      if (nowS - this.lastOpenT < th.grabWin || this.maxOpen > (th.fist + th.open) / 2) events.push('grab');
     }
     this.fistDrop = this.fistActive ? Math.max(0, this.fistStartY - this.palmCam.y) : 0;
     if (this.fistActive && !this.leverFired && this.fistDrop > th.lever) { events.push('lever'); this.leverFired = true; }
@@ -241,7 +248,7 @@ export class HandGestures {
     if (Math.abs(this.twistAcc) > th.twist * DEG) { events.push('twist'); this.twistAcc = 0; }
 
     this.v = {
-      pose: this.pose, pinch, open, speed, peak: this.peak, depth, gameDepth,
+      pose: this.pose, pinch, open, maxOpen: this.maxOpen, speed, peak: this.peak, depth, gameDepth,
       pinchDrop: this.pinchDrop, fistDrop: this.fistDrop,
       twist: this.twistAcc / DEG, vy: this.vel.y,
     };

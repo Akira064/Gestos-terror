@@ -31,6 +31,21 @@ for (const f of fs.readdirSync(threeBuild)) {
 }
 must(path.join(www, 'lib', 'three.module.js'), 'three.module.js');
 
+// Cargador glTF de three.js (para los modelos .glb de Blender)
+const jsm = must(path.join(nm, 'three', 'examples', 'jsm'), 'three/examples/jsm');
+for (const f of ['loaders/GLTFLoader.js', 'utils/BufferGeometryUtils.js']) {
+  const dst = path.join(www, 'lib', 'addons', f);
+  fs.mkdirSync(path.dirname(dst), { recursive: true });
+  fs.copyFileSync(must(path.join(jsm, f), f), dst);
+}
+
+// Lista de modelos .glb presentes en src/models (el juego solo carga los que existen)
+const modelsOut = path.join(www, 'models');
+fs.mkdirSync(modelsOut, { recursive: true });
+const glbs = fs.readdirSync(modelsOut).filter((f) => f.toLowerCase().endsWith('.glb')).map((f) => f.slice(0, -4));
+fs.writeFileSync(path.join(modelsOut, 'manifest.json'), JSON.stringify(glbs));
+console.log('[build] modelos de Blender:', glbs.length ? glbs.join(', ') : '(ninguno, se usan los de código)');
+
 // MediaPipe Tasks Vision
 const mp = must(path.join(nm, '@mediapipe', 'tasks-vision'), '@mediapipe/tasks-vision');
 const bundle = ['vision_bundle.mjs', 'vision_bundle.js'].map((f) => path.join(mp, f)).find((f) => fs.existsSync(f));

@@ -25,6 +25,50 @@ export class World {
     this.build();
     this.buildWindows();
     this.buildPlush();
+    this.mixers = [];
+    this.defineModelSlots();
+  }
+
+  // ---------- modelos de Blender ----------
+  // Cada hueco: dónde se cuelga el modelo y qué piezas procedurales se ocultan.
+  // Las colisiones siguen usando las cajas invisibles originales.
+  defineModelSlots() {
+    const lever = this.leverPivot.children.slice();
+    this.modelSlots = {
+      peluche: { parent: this.plushInner, replace: true },
+      caja: { parent: this.caja, hide: [this.caja] },
+      llave: { parent: this.keyMesh, replace: true },
+      mesa: { parent: this.tableAnchor, hide: this.tableMeshes },
+      palanca: { parent: this.leverPivot, hide: lever },
+      puerta: { parent: this.doorPivot, hide: [this.door] },
+      monstruo: { parent: this.figure, replace: true, after: () => { this.figHead = new THREE.Object3D(); } },
+      pedestal: { parent: this.scene, hide: [this.pedestal], at: this.pedestal.position.clone().setY(0) },
+    };
+  }
+
+  hideProcedural(obj) {
+    obj.traverse((o) => {
+      if (o.isMesh || o.isLineSegments) {
+        o.material = Array.isArray(o.material) ? o.material.map((m) => Object.assign(m.clone(), { visible: false })) : Object.assign(o.material.clone(), { visible: false });
+      }
+    });
+  }
+
+  attachModel(name, model, animations) {
+    const slot = this.modelSlots[name];
+    if (slot.replace) {
+      for (const c of slot.parent.children.slice()) slot.parent.remove(c);
+    }
+    (slot.hide || []).forEach((o) => this.hideProcedural(o));
+    if (slot.at) model.position.copy(slot.at);
+    slot.parent.add(model);
+    if (slot.after) slot.after();
+    if (animations.length) {
+      const mixer = new THREE.AnimationMixer(model);
+      mixer.clipAction(animations[0]).play();
+      this.mixers.push(mixer);
+    }
+    for (const it of this.items) it.refresh();
   }
 
   // ---------- mesa con peluche blando ----------
@@ -33,10 +77,13 @@ export class World {
     const tx = 1.5, tz = 1.0, topY = 0.9;
     this.tableTop = topY;
     this.tableBox = { minX: tx - 0.45, maxX: tx + 0.45, minZ: tz - 0.3, maxZ: tz + 0.3 };
-    this.box(0.9, 0.05, 0.6, tx, topY - 0.025, tz, wood);
+    this.tableMeshes = [this.box(0.9, 0.05, 0.6, tx, topY - 0.025, tz, wood)];
     for (const [lx, lz] of [[-0.4, -0.25], [0.4, -0.25], [-0.4, 0.25], [0.4, 0.25]]) {
-      this.box(0.05, topY - 0.05, 0.05, tx + lx, (topY - 0.05) / 2, tz + lz, wood, { hand: false, block: false });
+      this.tableMeshes.push(this.box(0.05, topY - 0.05, 0.05, tx + lx, (topY - 0.05) / 2, tz + lz, wood, { hand: false, block: false }));
     }
+    this.tableAnchor = new THREE.Group();
+    this.tableAnchor.position.set(tx, 0, tz);
+    this.scene.add(this.tableAnchor);
 
     // Peluche: raíz en los pies -> grupo de aplastado -> piezas
     const fur = this.mat('fur');
@@ -314,7 +361,7 @@ export class World {
     this.setCord(0);
 
     // ---------- Vitrina con caja ----------
-    this.box(0.6, 0.9, 0.6, -2.0, 0.45, 0.6, wood);
+    this.pedestal = this.box(0.6, 0.9, 0.6, -2.0, 0.45, 0.6, wood);
     const glassMat = new THREE.MeshLambertMaterial({ color: 0x9fd8e0, transparent: true, opacity: 0.22, depthWrite: false });
     this.glass = this.box(0.52, 0.46, 0.52, -2.0, 1.13, 0.6, glassMat, { block: false });
     this.glassEdges = new THREE.LineSegments(
@@ -677,6 +724,7 @@ export class World {
     this.time += dt;
     this._dt = dt;
     if (this.plush) this.updatePlush(dt);
+    for (const m of this.mixers) m.update(dt);
     const s = this.state;
     const t = this.time;
     const { sfx } = this.ctx;
