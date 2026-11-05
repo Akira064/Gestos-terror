@@ -2,7 +2,7 @@
 // texturas pixeladas procedurales, cuantización de color con dithering y viñeta.
 import * as THREE from 'three';
 
-export const LOW_HEIGHT = 224;
+export const LOW_SHORT = 200; // píxeles del lado corto
 export const snapUniform = { value: new THREE.Vector2(160, 112) };
 
 // ---------- Materiales con vertex snapping ----------
@@ -267,8 +267,9 @@ export class PS1Renderer {
   }
 
   resize(w, h) {
-    const lh = LOW_HEIGHT;
-    const lw = Math.max(64, Math.round(lh * (w / h)));
+    const k = LOW_SHORT / Math.min(w, h);
+    const lw = Math.max(64, Math.round(w * k));
+    const lh = Math.max(64, Math.round(h * k));
     this.rt.setSize(lw, lh);
     this.mat.uniforms.uRes.value.set(lw, lh);
     snapUniform.value.set(lw / 2, lh / 2);

@@ -10,7 +10,7 @@ Cada `push` a `main` ejecuta `.github/workflows/android.yml`:
 
 1. `npm install`
 2. `npm run build` → crea `www/` con el juego, three.js, MediaPipe y el modelo (descargado una vez al compilar)
-3. `npx cap add android` + `npm run android:patch` (permiso CAMERA, cámara trasera obligatoria, VIBRATE, horizontal, pantalla completa)
+3. `npx cap add android` + `npm run android:patch` (permiso CAMERA, cámara trasera obligatoria, VIBRATE, vertical, pantalla completa)
 4. `./gradlew assembleDebug`
 5. Publica `gestos-terror-N.apk` en **Releases** (tag `build-N`) y como artefacto.
 

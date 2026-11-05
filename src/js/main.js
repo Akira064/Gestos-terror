@@ -35,6 +35,8 @@ function resize() {
   renderer.setSize(w, h, false);
   post.resize(w, h);
   camera.aspect = w / h;
+  // En vertical se abre el FOV para no ver "por un tubo"
+  camera.fov = camera.aspect < 1 ? 82 : 62;
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);

@@ -1,7 +1,7 @@
 // Ajusta el proyecto Android generado por `npx cap add android`:
 //  - Permiso CAMERA + cámara trasera obligatoria (uses-feature required=true)
 //  - Flash opcional, VIBRATE para la vibración
-//  - Orientación horizontal, pantalla siempre encendida y modo inmersivo
+//  - Orientación vertical, pantalla siempre encendida y modo inmersivo
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -35,7 +35,7 @@ for (const line of extra) {
 if (!m.includes('android:screenOrientation')) {
   m = m.replace(
     'android:name=".MainActivity"',
-    'android:name=".MainActivity"\n            android:screenOrientation="sensorLandscape"'
+    'android:name=".MainActivity"\n            android:screenOrientation="portrait"'
   );
 }
 if (!m.includes('android:hardwareAccelerated')) {

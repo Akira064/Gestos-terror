@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 const DEG = Math.PI / 180;
-const TH_KEY = 'gt_thresholds_v1';
+const TH_KEY = 'gt_thresholds_v2';
 
 export const DEFAULT_TH = {
   pinch: 0.36,      // distancia pulgar-índice / tamaño palma para "pinza"
@@ -13,7 +13,7 @@ export const DEFAULT_TH = {
   punch: 0.9,       // m/s del puño para romper
   grabWin: 0.9,     // s entre mano abierta y puño para agarrar
   twist: 60,        // grados de giro de muñeca (llave)
-  camFov: 55,       // FOV vertical real de la cámara trasera
+  camFov: 66,       // FOV real de la cámara trasera a lo largo de la altura de la imagen (vertical)
   depthScale: 1.0,  // ganancia de profundidad real -> juego
   depthOffset: 0.1, // desplazamiento de profundidad
   handScale: 1.25,  // tamaño de la mano 3D
@@ -30,7 +30,7 @@ export const TH_SPEC = [
   ['punch', 'Golpe m/s', 0.3, 3, 0.05],
   ['grabWin', 'Agarre s', 0.3, 2, 0.05],
   ['twist', 'Giro º', 20, 140, 1],
-  ['camFov', 'FOV cámara', 35, 80, 1],
+  ['camFov', 'FOV cámara', 40, 90, 1],
   ['depthScale', 'Prof. ganancia', 0.3, 2.5, 0.05],
   ['depthOffset', 'Prof. offset', -0.3, 0.5, 0.01],
   ['handScale', 'Tamaño mano', 0.6, 2, 0.05],

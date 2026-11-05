@@ -30,8 +30,8 @@ export class Tracker {
         audio: false,
         video: {
           facingMode: { exact: 'environment' },
-          width: { ideal: 640 },
-          height: { ideal: 480 },
+          width: { ideal: 480 },
+          height: { ideal: 640 },
           frameRate: { ideal: 30, max: 30 },
         },
       });
@@ -100,6 +100,7 @@ export class Tracker {
     const v = this.video;
     if (!this.landmarker || v.readyState < 2) return;
     if (v.currentTime === this._lastVideoTime) return;
+    if (v.videoWidth && v.videoHeight) this.aspect = v.videoWidth / v.videoHeight;
     this._lastVideoTime = v.currentTime;
     const t0 = performance.now();
     let res;

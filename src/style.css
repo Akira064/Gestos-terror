@@ -13,19 +13,19 @@ html, body {
 #cam { position: fixed; left: -10px; top: -10px; width: 4px; height: 4px; opacity: 0; pointer-events: none; }
 
 #hud { position: fixed; inset: 0; pointer-events: none; text-shadow: 2px 2px 0 #000; }
-#timer { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+#timer { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
   font-size: 20px; letter-spacing: 2px; color: #c9b98f; }
 #inv { position: absolute; top: 12px; left: max(14px, env(safe-area-inset-left)); font-size: 14px; color: #e0c060; }
 #handState { position: absolute; top: 34px; left: max(14px, env(safe-area-inset-left)); font-size: 11px; color: #777; }
 #handState.on { color: #6c6; }
-#hint { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); font-size: 13px;
-  color: #bfb49a; background: rgba(0,0,0,.45); padding: 4px 10px; white-space: nowrap; }
+#hint { position: absolute; bottom: 170px; left: 50%; transform: translateX(-50%); font-size: 13px; max-width: 92vw;
+  text-align: center; color: #bfb49a; background: rgba(0,0,0,.45); padding: 4px 10px; }
 #hint:empty { display: none; }
 #msg { position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); width: 80%;
   text-align: center; font-size: 17px; color: #e8dcc0; opacity: 0; transition: opacity .4s; }
 #msg.show { opacity: 1; }
 
-#joy { position: fixed; left: max(22px, env(safe-area-inset-left)); bottom: 22px; width: 130px; height: 130px;
+#joy { position: fixed; left: max(22px, env(safe-area-inset-left)); bottom: max(28px, env(safe-area-inset-bottom)); width: 130px; height: 130px;
   border-radius: 50%; border: 2px solid rgba(200,190,160,.25); background: rgba(0,0,0,.25); touch-action: none; }
 #joyKnob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
   border-radius: 50%; background: rgba(200,190,160,.28); border: 2px solid rgba(200,190,160,.45); }
@@ -37,9 +37,9 @@ html, body {
 #btnDebug { position: fixed; top: 10px; right: max(12px, env(safe-area-inset-right)); }
 #btnRecenter { position: fixed; top: 46px; right: max(12px, env(safe-area-inset-right)); }
 
-#debug { position: fixed; top: 82px; right: max(12px, env(safe-area-inset-right)); width: 250px; max-height: calc(100vh - 92px);
+#debug { position: fixed; top: 82px; right: max(8px, env(safe-area-inset-right)); width: min(250px, 72vw); max-height: calc(100vh - 250px);
   overflow-y: auto; background: rgba(0,0,0,.78); border: 1px solid #444; padding: 8px; font-size: 10px; touch-action: pan-y; }
-#dbgSkel { display: block; width: 220px; height: 165px; background: #050505; border: 1px solid #333; margin: 0 auto 6px; }
+#dbgSkel { display: block; width: 150px; height: 200px; background: #050505; border: 1px solid #333; margin: 0 auto 6px; }
 #dbgVals { margin: 0 0 6px; white-space: pre; color: #9f9; font-size: 10px; line-height: 1.3; }
 .sl { display: grid; grid-template-columns: 82px 1fr 38px; align-items: center; gap: 4px; margin: 2px 0; color: #ccc; }
 .sl input { width: 100%; }
