@@ -44,6 +44,16 @@ if (!m.includes('android:hardwareAccelerated')) {
 fs.writeFileSync(manifestPath, m);
 console.log('[patch] AndroidManifest.xml actualizado');
 
+// Versión: versionCode = número de compilación, para que cada APK se instale encima del anterior
+const gradlePath = path.join(root, 'android', 'app', 'build.gradle');
+const build = parseInt(process.env.BUILD_NUMBER || '1', 10);
+if (fs.existsSync(gradlePath)) {
+  let gr = fs.readFileSync(gradlePath, 'utf8');
+  gr = gr.replace(/versionCode\s+\d+/, `versionCode ${build}`).replace(/versionName\s+"[^"]*"/, `versionName "1.0.${build}"`);
+  fs.writeFileSync(gradlePath, gr);
+  console.log(`[patch] versionCode ${build}, versionName 1.0.${build}`);
+}
+
 // MainActivity: pantalla encendida + barras del sistema ocultas
 const pkg = cfg.appId;
 const javaDir = path.join(appDir, 'java', ...pkg.split('.'));

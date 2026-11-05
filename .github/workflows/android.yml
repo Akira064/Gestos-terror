@@ -46,14 +46,23 @@ jobs:
         run: |
           if [ ! -d android ]; then npx cap add android; fi
 
-      - name: Permisos de cámara, orientación y pantalla completa
+      - name: Permisos de cámara, orientación, pantalla completa y versión
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
         run: npm run android:patch
 
       - name: Sincronizar Capacitor
         run: npx cap sync android
 
+      - name: Clave de firma fija (permite actualizar sin desinstalar)
+        run: |
+          mkdir -p ~/.android
+          cp signing/debug.keystore ~/.android/debug.keystore
+
       - name: Compilar APK
         working-directory: android
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
