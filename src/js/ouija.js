@@ -110,6 +110,10 @@ export class OuijaScene {
     this.pullOff = new THREE.Vector2();
     this.tip = new THREE.Vector2();
     this.drive = new THREE.Vector2();
+    this.target = new THREE.Vector2();
+    this.filt = new THREE.Vector3();
+    this.lift = 0;
+    this.lostHand = false;
     this.attachY = 0;
     this.blend = 0;
     this.answering = null;  // zonas válidas mientras se espera respuesta
@@ -351,60 +355,84 @@ export class OuijaScene {
     }
   }
 
-  // El dedo sobre el vaso. El vaso lo mueve la PALMA (mucho más estable que la yema) y,
-  // mientras lo tocas, la mano adopta una postura fija de "señalar" apoyada en el vaso.
+  // El dedo sobre el vaso.
+  // - El vaso se mueve con lo que mueves la PALMA RESPECTO AL MÓVIL: si giras el móvil para mirar
+  //   el retrato o el mueble, la mano gira con él pero el vaso no se mueve (tu dedo sigue ahí).
+  // - Si la cámara pierde la mano, el dedo se queda en el vaso; al volver, se continúa desde ahí.
+  // - Mientras tocas el vaso, la mano adopta una postura fija y estable de "señalar".
   softTouch(palm, P, palmRaw = palm) {
     const dt = this._dt || 0.016;
     const tip = P[8];
     const g = this.glass;
+    const cam = this.ctx.camera;
+    const local = cam.worldToLocal((this._loc || (this._loc = new THREE.Vector3())).copy(palmRaw));
+    this.lastScale = Math.max(0.6, Math.min(2.2, P[0].distanceTo(P[9]) / 0.092));
     if (!this.attached) {
       const hdTip = Math.hypot(tip.x - g.x, tip.z - g.y);
       const hdPalm = Math.hypot(palmRaw.x - g.x, palmRaw.z - g.y);
-      if (!this.over && ((hdTip < 0.065 && tip.y < GLASS_TOP + 0.06) || (hdPalm < 0.08 && palmRaw.y < GLASS_TOP + 0.1))) {
+      if (!this.over && ((hdTip < 0.07 && tip.y < GLASS_TOP + 0.07) || (hdPalm < 0.09 && palmRaw.y < GLASS_TOP + 0.12))) {
         this.attached = true;
         this.detachT = 0;
-        this.drive.set(palmRaw.x, palmRaw.z);
-        this.grabOff.set(g.x - palmRaw.x, g.y - palmRaw.z);
-        this.attachY = palmRaw.y;
+        this.lift = 0;
+        this.target.copy(g);
+        this.filt.copy(local);
         this.ctx.sfx.play('clack');
         this.ctx.vibrate(15);
       }
     } else {
-      // filtro con holgura: los temblores de menos de 5 mm no mueven el vaso
-      const dx = palmRaw.x - this.drive.x, dz = palmRaw.z - this.drive.y;
-      const d = Math.hypot(dx, dz), slack = 0.005;
-      if (d > slack) { const k = (d - slack) / d; this.drive.x += dx * k; this.drive.y += dz * k; }
-      const lifted = palmRaw.y > this.attachY + 0.13;
-      this.detachT = lifted ? this.detachT + dt : 0;
-      if (this.detachT > 0.3) this.attached = false;
+      if (this.lostHand) { this.filt.copy(local); this.lostHand = false; } // vuelve la mano: seguir desde aquí
+      // filtro con holgura (en el espacio del móvil): los temblores de menos de 5 mm no mueven el vaso
+      const d = this._dl || (this._dl = new THREE.Vector3());
+      d.copy(local).sub(this.filt);
+      const len = d.length(), slack = 0.005;
+      if (len > slack) {
+        d.multiplyScalar((len - slack) / len);
+        this.filt.add(d);
+        // ese movimiento de la mano, llevado a la mesa
+        d.applyQuaternion(cam.quaternion);
+        this.target.x += d.x;
+        this.target.y += d.z;
+        this.lift = Math.max(-0.05, this.lift + d.y);
+      }
+      const hx = BOARD.w / 2 - 0.04, hz = BOARD.d / 2 - 0.04;
+      this.target.x = Math.max(BOARD.x - hx, Math.min(BOARD.x + hx, this.target.x));
+      this.target.y = Math.max(BOARD.z - hz, Math.min(BOARD.z + hz, this.target.y));
+      this.detachT = this.lift > 0.12 ? this.detachT + dt : 0;  // levantar la mano suelta el vaso
+      if (this.detachT > 0.2) this.attached = false;
     }
-    this.tip.copy(this.drive);
     this.blend += ((this.attached ? 1 : 0) - this.blend) * Math.min(1, dt * 10);
     if (this.blend < 0.02) return null;
+    return { points: this.pointingPose(this.lastScale), blend: this.blend };
+  }
 
-    // --- postura de señalar con el índice sobre el vaso ---
+  // La mano dibujada aunque la cámara no la vea, mientras el dedo siga en el vaso
+  lostPose() {
+    if (!this.attached) return null;
+    this.lostHand = true;
+    return this.pointingPose(this.lastScale || 1.4);
+  }
+
+  // Postura de señalar con el índice sobre el vaso (como al señalar algo en la mesa: el brazo viene
+  // del hombro, el índice sigue la línea del brazo, el dorso mira hacia ti y los demás dedos se recogen)
+  pointingPose(scale) {
+    const g = this.glass;
     const top = this._top || (this._top = new THREE.Vector3());
     top.set(g.x, GLASS_TOP + 0.004, g.y);
-    // Como al señalar algo en la mesa: el brazo viene del hombro, el índice apunta hacia delante y
-    // abajo, el dorso de la mano mira hacia arriba (hacia ti) y los demás dedos se recogen por debajo.
     const sh = this.ctx.shoulder(this._cp || (this._cp = new THREE.Vector3()));
     const fwd = this._fw || (this._fw = new THREE.Vector3());
     fwd.set(top.x - sh.x, 0, top.z - sh.z);
     if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
     fwd.normalize();
-    // índice en la línea del brazo (del hombro al vaso), solo un poco más inclinado hacia abajo
     const u = this._pu || (this._pu = new THREE.Vector3());
     u.copy(top).sub(sh).normalize().add(this._dn || (this._dn = new THREE.Vector3(0, -0.06, 0))).normalize();
-    // lado del pulgar: a la izquierda del brazo si es la mano derecha
     const s = this._ps || (this._ps = new THREE.Vector3());
-    s.set(0, 1, 0).cross(fwd);                 // izquierda de la dirección del brazo
+    s.set(0, 1, 0).cross(fwd);                 // lado del pulgar: izquierda del brazo (mano derecha)
     if (this.ctx.handLeft && this.ctx.handLeft()) s.negate();
     s.addScaledVector(u, -s.dot(u)).normalize();
     const n = this._pn || (this._pn = new THREE.Vector3());
     n.crossVectors(u, s);
     if (n.y > 0) n.negate();                   // la palma mira hacia abajo; ves el dorso
-    const scale = Math.max(0.6, Math.min(2.2, P[0].distanceTo(P[9]) / 0.092));
-    if (!this.pose) this.pose = posedHand([0.03, 0.5, 0.78, 0.85], 0.5); // índice estirado, corazón a medias
+    if (!this.pose) this.pose = posedHand([0.03, 0.5, 0.78, 0.85], 0.5);
     const L = this.pose;
     const tipL = L[8];
     const out = this.posePts || (this.posePts = Array.from({ length: 21 }, () => new THREE.Vector3()));
@@ -415,7 +443,7 @@ export class OuijaScene {
         .addScaledVector(u, (p[1] - tipL[1]) * scale)
         .addScaledVector(n, (p[2] - tipL[2]) * scale);
     }
-    return { points: out, blend: this.blend };
+    return out;
   }
 
   // ---------------- guion ----------------
@@ -630,11 +658,8 @@ export class OuijaScene {
       if (t >= this.timers[i].t) { const tm = this.timers.splice(i, 1)[0]; tm.fn(); }
     }
 
-    // mano perdida = dedo fuera del vaso
-    if (!this._handPalm) {
-      this.missing += dt;
-      if (this.missing > 0.6) this.attached = false;
-    }
+    // mano perdida: el dedo se queda en el vaso (lo recuerda hasta que vuelvas a ver la mano)
+    if (!this._handPalm) this.missing += dt;
 
     // --- vaso ---
     this.glassPrev.copy(this.glass);
@@ -647,8 +672,8 @@ export class OuijaScene {
         this._pullVib = (this._pullVib || 0) - dt;
         if (this._pullVib <= 0) { this.ctx.vibrate(18); this._pullVib = 0.3; }
       }
-      const tx = this.tip.x + this.grabOff.x + this.pullOff.x;
-      const tz = this.tip.y + this.grabOff.y + this.pullOff.y;
+      const tx = this.target.x + this.pullOff.x;
+      const tz = this.target.y + this.pullOff.y;
       const k = Math.min(1, dt * 14);
       let dx = (tx - this.glass.x) * k, dz = (tz - this.glass.y) * k;
       const step = Math.hypot(dx, dz), maxStep = 0.9 * dt;
@@ -719,7 +744,7 @@ export class OuijaScene {
       L.t += dt;
       const g = L.g;
       const palm = this._handPalm;
-      const swat = palm && palm.distanceTo(g.position) < 0.15 && this._handVel.length() > 0.6;
+      const swat = palm && palm.distanceTo(g.position) < 0.15 && this._handVel.length() > 1.0;
       if (L.phase === 'rise') {
         const k = Math.min(1, L.t / 2.2);
         const e = k * k * (3 - 2 * k);

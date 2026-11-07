@@ -82,9 +82,9 @@ export class Tracker {
       baseOptions: { modelAssetPath: './mediapipe/hand_landmarker.task', delegate },
       runningMode: 'VIDEO',
       numHands: 1,
-      minHandDetectionConfidence: 0.5,
-      minHandPresenceConfidence: 0.5,
-      minTrackingConfidence: 0.45,
+      minHandDetectionConfidence: 0.35,
+      minHandPresenceConfidence: 0.35,
+      minTrackingConfidence: 0.35,
     });
     try {
       this.landmarker = await HandLandmarker.createFromOptions(fileset, opts('GPU'));

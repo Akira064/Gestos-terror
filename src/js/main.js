@@ -154,6 +154,7 @@ let recentHoverT = -1e9;
 let contact = false;
 let lastDetMs = 0;
 let wasPresent = false;
+let everSeen = false;
 let vibeT = 0;
 
 function avgPalm(out) {
@@ -204,6 +205,15 @@ function updateHand(nowMs, dt) {
     hovered = null;
     contact = false;
     world.setHand(null, true);
+    // si la mano estaba apoyada en algo (el dedo en el vaso), se sigue dibujando ahí
+    const kept = world.lostPose && world.lostPose();
+    if (kept) {
+      for (let i = 0; i < 21; i++) P[i].copy(kept[i]);
+      const yawK = GyroLook.yawOf(camera.quaternion, dir);
+      elbowHint.set((th.handLeft >= 0.5 ? -1 : 1) * 0.45, -0.6, 0.55).applyAxisAngle(YAXIS, yawK);
+      hand.update(P, th.handScale, shoulderPos(shoulderW), elbowHint);
+      hand.group.visible = true;
+    }
     world.squashTarget = world.plushHeld ? 0.25 : 0;
     sfx.setScrape(0);
     $('handState').textContent = 'MANO —';
@@ -211,6 +221,7 @@ function updateHand(nowMs, dt) {
     return;
   }
   wasPresent = true;
+  if (!everSeen) { everSeen = true; $('handGuide').hidden = true; vibrate(30); }
   $('handState').textContent = 'MANO ' + gestures.pose;
   $('handState').classList.add('on');
 
@@ -367,11 +378,15 @@ async function startGame(sceneName, btn) {
   $('timer').hidden = seated;
   $('sanity').hidden = !seated;
   if (seated) { scene.fog.near = 0.8; scene.fog.far = 4.5; }
+  // guía hasta que se detecta la mano por primera vez
+  $('handGuide').hidden = false;
+  setTimeout(() => {
+    if (!everSeen) $('handGuideText').innerHTML = '¿No te detecta?<br>Aleja un poco la mano y ábrela del todo.<br>Busca algo de luz si está muy oscuro.';
+  }, 7000);
   gyro.needRecenter = true;
   running = true;
   startT = performance.now();
   if (!seated && !tracker.torchOn) setTimeout(() => !tracker.torchOn && msg('Tu móvil no deja encender el flash desde la app. Busca algo de luz.', 4), 1500);
-  if (!seated) msg('Pon la mano detrás del móvil, delante de la cámara.', 4);
 }
 $('btnStart').addEventListener('click', () => startGame('ouija', $('btnStart')));
 $('btnTest').addEventListener('click', () => startGame('test', $('btnTest')));

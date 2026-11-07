@@ -22,6 +22,11 @@ html, body {
   font-size: 10px; letter-spacing: 2px; color: #b8a888; }
 #sanityBar { width: 110px; height: 7px; margin-top: 3px; border: 1px solid #5a4a3a; background: rgba(0,0,0,.5); }
 #sanityBar i { display: block; height: 100%; width: 100%; background: #b8a070; transition: width .6s, background .6s; }
+#handGuide { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); text-align: center; width: 80vw; }
+#handGuide .ring { width: 74px; height: 74px; margin: 0 auto 12px; border: 3px dashed rgba(220,200,160,.7); border-radius: 50%;
+  animation: guidePulse 1.4s ease-in-out infinite; }
+#handGuide p { margin: 0; font-size: 14px; line-height: 1.4; color: #e0d4bc; text-shadow: 2px 2px 0 #000; }
+@keyframes guidePulse { 0%, 100% { transform: scale(.85); opacity: .5; } 50% { transform: scale(1.1); opacity: 1; } }
 #voice { position: absolute; left: 50%; bottom: 190px; transform: translateX(-50%); width: 88vw; text-align: center;
   font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-size: 19px; line-height: 1.3; color: #e8d8c8;
   text-shadow: 0 0 8px #600, 2px 2px 0 #000; opacity: 0; transition: opacity .5s; }

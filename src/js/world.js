@@ -205,7 +205,7 @@ export class World {
 
   // Lanzar: abrir la mano mientras la mueves rápido
   isThrow() {
-    return !!(this._handPalm && this._handOpen && this._handVel.length() > (this.throwSpeed || 1.8));
+    return !!(this._handPalm && this._handOpen && this._handVel.length() > (this.throwSpeed || 3.0));
   }
 
   // Botón SOLTAR: deja caer lo que lleves, sin impulso
