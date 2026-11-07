@@ -91,6 +91,19 @@ const THUMB_TABLE = makeTable((c) => {
   return Math.hypot(j[3][0] - p[0], j[3][1] - p[1], j[3][2] - p[2]) / PALM_LEN;
 });
 
+// Mano en una postura fija (coordenadas de la plantilla: x = hacia el índice, y = hacia los dedos, z = hacia la palma)
+export function posedHand(curls, thumbC) {
+  const pts = Array.from({ length: 21 }, () => [0, 0, 0]);
+  const j = [[], [], [], []];
+  thumbModel(thumbC, j);
+  for (let k = 0; k < 4; k++) pts[1 + k] = j[k].slice();
+  FINGERS.forEach((f, i) => {
+    fingerModel(f, curls[i], j);
+    for (let k = 0; k < 4; k++) pts[f.mcp + k] = j[k].slice();
+  });
+  return pts;
+}
+
 export class HandRetarget {
   constructor() {
     this.q = new THREE.Quaternion();

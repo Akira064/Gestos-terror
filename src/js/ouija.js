@@ -3,6 +3,7 @@
 // Si fallas o lo enfadas: se abre el mueble, levita una taza, te la lanza. Tu cordura baja.
 import * as THREE from 'three';
 import { ps1Mat, boxGeo, makeTex } from './ps1.js';
+import { posedHand } from './handPose.js';
 
 const TABLE_Y = 0.76;                 // superficie de la mesa
 const BOARD = { x: 0, z: -0.29, w: 0.54, d: 0.38 };  // pegado al borde de la mesa, delante de ti
@@ -108,6 +109,9 @@ export class OuijaScene {
     this.grabOff = new THREE.Vector2();
     this.pullOff = new THREE.Vector2();
     this.tip = new THREE.Vector2();
+    this.drive = new THREE.Vector2();
+    this.attachY = 0;
+    this.blend = 0;
     this.answering = null;  // zonas válidas mientras se espera respuesta
     this.dwellZone = null;
     this.dwellT = 0;
@@ -347,28 +351,75 @@ export class OuijaScene {
     }
   }
 
-  // El dedo sobre el vaso. Devuelve cuánto mover la mano para que el dedo quede apoyado en él.
-  softTouch(palm, P) {
+  // El dedo sobre el vaso. El vaso lo mueve la PALMA (mucho más estable que la yema) y,
+  // mientras lo tocas, la mano adopta una postura fija de "señalar" apoyada en el vaso.
+  softTouch(palm, P, palmRaw = palm) {
+    const dt = this._dt || 0.016;
     const tip = P[8];
     const g = this.glass;
-    const hd = Math.hypot(tip.x - g.x, tip.z - g.y);
-    this.tip.set(tip.x, tip.z);
     if (!this.attached) {
-      if (hd < 0.065 && tip.y < GLASS_TOP + 0.06 && !this.over) {
+      const hdTip = Math.hypot(tip.x - g.x, tip.z - g.y);
+      const hdPalm = Math.hypot(palmRaw.x - g.x, palmRaw.z - g.y);
+      if (!this.over && ((hdTip < 0.065 && tip.y < GLASS_TOP + 0.06) || (hdPalm < 0.08 && palmRaw.y < GLASS_TOP + 0.1))) {
         this.attached = true;
         this.detachT = 0;
-        this.grabOff.set(g.x - tip.x, g.y - tip.z);
+        this.drive.set(palmRaw.x, palmRaw.z);
+        this.grabOff.set(g.x - palmRaw.x, g.y - palmRaw.z);
+        this.attachY = palmRaw.y;
         this.ctx.sfx.play('clack');
         this.ctx.vibrate(15);
       }
     } else {
-      const lifted = tip.y > GLASS_TOP + 0.11;
-      const far = hd > 0.17 + this.pullOff.length();
-      this.detachT = lifted || far ? this.detachT + (this._dt || 0.016) : 0;
+      // filtro con holgura: los temblores de menos de 5 mm no mueven el vaso
+      const dx = palmRaw.x - this.drive.x, dz = palmRaw.z - this.drive.y;
+      const d = Math.hypot(dx, dz), slack = 0.005;
+      if (d > slack) { const k = (d - slack) / d; this.drive.x += dx * k; this.drive.y += dz * k; }
+      const lifted = palmRaw.y > this.attachY + 0.13;
+      this.detachT = lifted ? this.detachT + dt : 0;
       if (this.detachT > 0.3) this.attached = false;
     }
-    if (!this.attached) return null;
-    return new THREE.Vector3(g.x - tip.x, GLASS_TOP + 0.004 - tip.y, g.y - tip.z);
+    this.tip.copy(this.drive);
+    this.blend += ((this.attached ? 1 : 0) - this.blend) * Math.min(1, dt * 10);
+    if (this.blend < 0.02) return null;
+
+    // --- postura de señalar con el índice sobre el vaso ---
+    const top = this._top || (this._top = new THREE.Vector3());
+    top.set(g.x, GLASS_TOP + 0.004, g.y);
+    const cam = this.ctx.camera.getWorldPosition(this._cp || (this._cp = new THREE.Vector3()));
+    const fwd = this._fw || (this._fw = new THREE.Vector3());
+    fwd.set(top.x - cam.x, 0, top.z - cam.z);
+    if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
+    fwd.normalize();
+    const u = this._pu || (this._pu = new THREE.Vector3());
+    u.copy(fwd).multiplyScalar(0.45).add(this._dn || (this._dn = new THREE.Vector3(0, -0.9, 0))).normalize(); // el índice apunta hacia abajo
+    // lado del índice: se toma de tu mano real, suavizado y sin saltos de signo
+    const sLive = this._sl || (this._sl = new THREE.Vector3());
+    sLive.copy(P[5]).sub(P[17]);
+    sLive.addScaledVector(u, -sLive.dot(u));
+    if (sLive.lengthSq() > 1e-8) {
+      sLive.normalize();
+      if (!this.sideV) this.sideV = sLive.clone();
+      else if (sLive.dot(this.sideV) > -0.2) this.sideV.lerp(sLive, 0.08);
+    }
+    const s = this._ps || (this._ps = new THREE.Vector3());
+    s.copy(this.sideV || new THREE.Vector3(1, 0, 0));
+    s.addScaledVector(u, -s.dot(u)).normalize();
+    const n = this._pn || (this._pn = new THREE.Vector3());
+    n.crossVectors(u, s);
+    if (n.dot(fwd) > 0) n.negate(); // la palma mira hacia ti
+    const scale = Math.max(0.6, Math.min(2.2, P[0].distanceTo(P[9]) / 0.092));
+    if (!this.pose) this.pose = posedHand([0.08, 0.85, 0.9, 0.92], 0.65);
+    const L = this.pose;
+    const tipL = L[8];
+    const out = this.posePts || (this.posePts = Array.from({ length: 21 }, () => new THREE.Vector3()));
+    for (let i = 0; i < 21; i++) {
+      const p = L[i];
+      out[i].copy(top)
+        .addScaledVector(s, (p[0] - tipL[0]) * scale)
+        .addScaledVector(u, (p[1] - tipL[1]) * scale)
+        .addScaledVector(n, (p[2] - tipL[2]) * scale);
+    }
+    return { points: out, blend: this.blend };
   }
 
   // ---------------- guion ----------------

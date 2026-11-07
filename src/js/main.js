@@ -135,6 +135,7 @@ const tmp = new THREE.Vector3();
 const dir = new THREE.Vector3();
 const prevPalm = new THREE.Vector3();
 const palmN = new THREE.Vector3();
+const palmRaw = new THREE.Vector3();
 const ray = new THREE.Raycaster();
 let hovered = null;
 let recentHover = null;
@@ -213,6 +214,7 @@ function updateHand(nowMs, dt) {
   // No atraviesa paredes ni objetos: se empuja hacia la cámara hasta apoyarse
   camera.getWorldPosition(camW);
   avgPalm(palmW);
+  palmRaw.copy(palmW); // posición de la palma antes de los choques (más estable)
   let pen = penetration(palmW);
   for (const k of PROBES) pen = Math.max(pen, penetration(P[k]));
   const wasContact = contact;
@@ -227,8 +229,13 @@ function updateHand(nowMs, dt) {
   }
 
   // Peluche: contacto blando (se aplasta, la mano entra un poco)
-  const soft = world.softTouch(palmW, P);
-  if (soft) { for (let i = 0; i < 21; i++) P[i].add(soft); palmW.add(soft); }
+  const soft = world.softTouch(palmW, P, palmRaw);
+  if (soft && soft.points) {
+    // el objeto impone una postura estable a la mano (p. ej. el dedo sobre el vaso)
+    for (let i = 0; i < 21; i++) P[i].lerp(soft.points[i], soft.blend);
+    avgPalm(palmW);
+    if (soft.blend > 0.5) { contact = false; sfx.setScrape(0); }
+  } else if (soft) { for (let i = 0; i < 21; i++) P[i].add(soft); palmW.add(soft); }
 
   // Vibración al tocar y roce al arrastrar
   const slide = prevPalm.distanceTo(palmW) / Math.max(dt, 1e-3);
