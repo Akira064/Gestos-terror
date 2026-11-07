@@ -2,23 +2,23 @@
 import * as THREE from 'three';
 
 const DEG = Math.PI / 180;
-const TH_KEY = 'gt_thresholds_v6';
+const TH_KEY = 'gt_thresholds_v7';
 
 export const DEFAULT_TH = {
   pinch: 0.36,      // distancia pulgar-índice / tamaño palma para "pinza"
   fist: 1.35,       // apertura media de dedos por debajo = puño
   open: 1.7,        // apertura por encima = mano abierta
-  pull: 0.06,       // metros que hay que bajar la pinza (cuerda)
-  lever: 0.08,      // metros que hay que bajar el puño (palanca)
-  punch: 0.7,       // m/s del puño para romper de un golpe (la mitad agrieta)
+  pull: 0.1,       // metros que hay que bajar la pinza (cuerda)
+  lever: 0.13,      // metros que hay que bajar el puño (palanca)
+  punch: 1.8,       // m/s del puño (en el juego) para romper de un golpe (la mitad agrieta)
   grabWin: 0.9,     // s entre mano abierta y puño para agarrar
   twist: 60,        // grados de giro de muñeca (llave)
   camFov: 66,       // FOV real de la cámara trasera a lo largo de la altura de la imagen (vertical)
-  depthScale: 1.0,  // ganancia de profundidad real -> juego
-  depthOffset: 0.1, // desplazamiento de profundidad
-  handScale: 1.25,  // tamaño de la mano 3D
+  depthScale: 2.4,  // ganancia de profundidad: 1 cm real = 2,4 cm en el juego (brazo más largo)
+  depthOffset: -0.08, // desplazamiento de profundidad
+  handScale: 1.5,   // tamaño de la mano 3D
   reach: 1.15,      // alcance lateral (para llegar a los bordes)
-  hover: 0.1,       // distancia para considerar la mano "encima" de un objeto
+  hover: 0.13,      // distancia para considerar la mano "encima" de un objeto
   trigger: 0.18,    // cuánto tiene que doblarse el índice (rápido) para disparar
 };
 
@@ -26,13 +26,13 @@ export const TH_SPEC = [
   ['pinch', 'Pinza', 0.15, 0.7, 0.01],
   ['fist', 'Puño', 0.8, 1.6, 0.01],
   ['open', 'Abierta', 1.3, 2.3, 0.01],
-  ['pull', 'Bajar cuerda', 0.02, 0.2, 0.005],
-  ['lever', 'Bajar palanca', 0.02, 0.2, 0.005],
-  ['punch', 'Golpe m/s', 0.3, 3, 0.05],
+  ['pull', 'Bajar cuerda', 0.02, 0.3, 0.005],
+  ['lever', 'Bajar palanca', 0.02, 0.3, 0.005],
+  ['punch', 'Golpe m/s', 0.5, 4, 0.05],
   ['grabWin', 'Agarre s', 0.3, 2, 0.05],
   ['twist', 'Giro º', 20, 140, 1],
   ['camFov', 'FOV cámara', 40, 90, 1],
-  ['depthScale', 'Prof. ganancia', 0.3, 2.5, 0.05],
+  ['depthScale', 'Prof. ganancia', 0.5, 4, 0.05],
   ['depthOffset', 'Prof. offset', -0.3, 0.5, 0.01],
   ['handScale', 'Tamaño mano', 0.6, 2, 0.05],
   ['reach', 'Alcance', 0.8, 1.6, 0.01],
@@ -149,7 +149,7 @@ export class HandGestures {
     }
     if (!isFinite(depth)) depth = 0.45;
     depth = this.fDepth.f(Math.min(1.5, Math.max(0.1, depth)), dt);
-    const gameDepth = Math.min(1.3, Math.max(0.22, depth * th.depthScale + th.depthOffset));
+    const gameDepth = Math.min(1.6, Math.max(0.25, depth * th.depthScale + th.depthOffset));
 
     // --- Centro de la palma en pantalla (cámara trasera: sin espejo) ---
     let px = 0, py = 0;

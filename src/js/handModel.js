@@ -42,7 +42,7 @@ export class HandModel {
     this.group.add(this.palm);
 
     // Manga y puño de la manga
-    this.sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.05, 0.34, 6, 1), cloth);
+    this.sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.052, 0.6, 6, 1), cloth);
     this.cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.045, 6, 1), cuffMat);
     this.sleeve.frustumCulled = this.cuff.frustumCulled = false;
     this.group.add(this.sleeve, this.cuff);
@@ -108,6 +108,6 @@ export class HandModel {
     this.sleeve.scale.setScalar(scale);
     this.cuff.scale.setScalar(scale);
     this.cuff.position.copy(P[0]).addScaledVector(back, 0.012 * scale);
-    this.sleeve.position.copy(P[0]).addScaledVector(back, (0.034 + 0.17) * scale);
+    this.sleeve.position.copy(P[0]).addScaledVector(back, (0.034 + 0.3) * scale);
   }
 }
