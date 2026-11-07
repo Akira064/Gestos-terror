@@ -1,8 +1,9 @@
 // Filtrado de landmarks, estimación de profundidad, posición en cámara y detección de gestos.
 import * as THREE from 'three';
+import { HandRetarget } from './handPose.js';
 
 const DEG = Math.PI / 180;
-const TH_KEY = 'gt_thresholds_v7';
+const TH_KEY = 'gt_thresholds_v8';
 
 export const DEFAULT_TH = {
   pinch: 0.36,      // distancia pulgar-índice / tamaño palma para "pinza"
@@ -19,6 +20,7 @@ export const DEFAULT_TH = {
   handScale: 1.5,   // tamaño de la mano 3D
   reach: 1.15,      // alcance lateral (para llegar a los bordes)
   hover: 0.13,      // distancia para considerar la mano "encima" de un objeto
+  stable: 1,        // 1 = mano estable reconstruida, 0 = puntos crudos de MediaPipe
   trigger: 0.18,    // cuánto tiene que doblarse el índice (rápido) para disparar
 };
 
@@ -38,6 +40,7 @@ export const TH_SPEC = [
   ['reach', 'Alcance', 0.8, 1.6, 0.01],
   ['hover', 'Distancia obj.', 0.03, 0.25, 0.005],
   ['trigger', 'Gatillo', 0.06, 0.5, 0.01],
+  ['stable', 'Mano estable', 0, 1, 1],
 ];
 
 export function loadThresholds() {
@@ -89,6 +92,7 @@ export class HandGestures {
     this.vel = new THREE.Vector3();
     this._v = new THREE.Vector3(); this._a = new THREE.Vector3(); this._p = new THREE.Vector3();
     this.prevVp = null;
+    this.retarget = new HandRetarget();
     this.v = {}; // valores para el debug
     this.reset();
   }
@@ -97,6 +101,7 @@ export class HandGestures {
     this.fImg.forEach((f) => f.reset());
     this.fW.forEach((f) => f.reset());
     this.fDepth.reset();
+    if (this.retarget) this.retarget.reset();
     this.hasPrev = false;
     this.pose = 'none';
     this.pinchActive = false;
@@ -160,11 +165,15 @@ export class HandGestures {
     this.palmCam.set(nx * view.tanV * view.aspect * gameDepth, ny * view.tanV * gameDepth, -gameDepth);
 
     // --- Puntos de la mano en espacio cámara: (x, -y, -z) de MediaPipe ---
+    // Mano estable: palma rígida + dedos reconstruidos a partir de cuánto se doblan
+    const pinchRaw = W[4].distanceTo(W[8]) / Math.max(0.03, W[0].distanceTo(W[9]));
+    const pinchW = Math.max(0, Math.min(1, (th.pinch + 0.15 - pinchRaw) / 0.15));
+    const SRC = th.stable >= 0.5 ? this.retarget.update(W, pinchW) : W;
     const wp = this._p.set(0, 0, 0);
-    for (const k of PALM) wp.add(W[k]);
+    for (const k of PALM) wp.add(SRC[k]);
     wp.multiplyScalar(1 / PALM.length);
     for (let i = 0; i < 21; i++) {
-      const d = this._v.copy(W[i]).sub(wp);
+      const d = this._v.copy(SRC[i]).sub(wp);
       this.pointsCam[i].set(d.x, -d.y, -d.z).multiplyScalar(th.handScale).add(this.palmCam);
     }
 
@@ -273,6 +282,7 @@ export class HandGestures {
       pose: this.pose, pinch, open, maxOpen: this.maxOpen, idx, idxPull: idxMax - idx, speed, peak: this.peak, depth, gameDepth,
       pinchDrop: this.pinchDrop, fistDrop: this.fistDrop,
       twist: this.twistAcc / DEG, vy: this.vel.y,
+      curls: this.retarget.curl, thumbC: this.retarget.thumb, edge: this.retarget.edge, palmSign: this.retarget.palmSign,
     };
     if (events.length) this.v.lastEvents = events.join(',');
     return events;

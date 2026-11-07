@@ -99,6 +99,7 @@ export class DebugPanel {
       `bajada P ${f(v.pinchDrop, 3)} / ${f(th.pull, 3)}`,
       `bajada F ${f(v.fistDrop, 3)} / ${f(th.lever, 3)}`,
       `giro     ${f(v.twist, 0)}º / ${f(th.twist, 0)}º`,
+      `dedos    ${(v.curls || []).map((c) => f(c, 1)).join(' ')} pulgar ${f(v.thumbC, 1)}${v.edge ? ' DE CANTO' : ''} palma ${v.palmSign > 0 ? '+' : '-'}`,
       `gatillo  índice ${f(v.idx)} tirón ${f(v.idxPull)} / ${f(th.trigger)}`,
       `prof     real ${f(v.depth)} m  juego ${f(v.gameDepth)}`,
       `contacto ${info.contact ? 'SÍ' : 'no'}  objeto ${info.hover || '-'}`,
