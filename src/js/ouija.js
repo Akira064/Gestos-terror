@@ -92,7 +92,7 @@ export class OuijaScene {
     this.eyeHeight = 1.17;
     this.start = new THREE.Vector3(0, 0, -0.02);
     this.lockMove = true;
-    this.flashFactor = 0;
+    this.flashFactor = 0.13; // casi nada: solo lo justo para verte la mano a la luz de las velas
     this.time = 0;
     this.sanity = 100;
     this.anger = 0;
@@ -385,28 +385,23 @@ export class OuijaScene {
     // --- postura de señalar con el índice sobre el vaso ---
     const top = this._top || (this._top = new THREE.Vector3());
     top.set(g.x, GLASS_TOP + 0.004, g.y);
-    const cam = this.ctx.camera.getWorldPosition(this._cp || (this._cp = new THREE.Vector3()));
+    // Como al señalar algo en la mesa: el brazo viene del hombro, el índice apunta hacia delante y
+    // abajo, el dorso de la mano mira hacia arriba (hacia ti) y los demás dedos se recogen por debajo.
+    const sh = this.ctx.shoulder(this._cp || (this._cp = new THREE.Vector3()));
     const fwd = this._fw || (this._fw = new THREE.Vector3());
-    fwd.set(top.x - cam.x, 0, top.z - cam.z);
+    fwd.set(top.x - sh.x, 0, top.z - sh.z);
     if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
     fwd.normalize();
     const u = this._pu || (this._pu = new THREE.Vector3());
-    u.copy(fwd).multiplyScalar(0.45).add(this._dn || (this._dn = new THREE.Vector3(0, -0.9, 0))).normalize(); // el índice apunta hacia abajo
-    // lado del índice: se toma de tu mano real, suavizado y sin saltos de signo
-    const sLive = this._sl || (this._sl = new THREE.Vector3());
-    sLive.copy(P[5]).sub(P[17]);
-    sLive.addScaledVector(u, -sLive.dot(u));
-    if (sLive.lengthSq() > 1e-8) {
-      sLive.normalize();
-      if (!this.sideV) this.sideV = sLive.clone();
-      else if (sLive.dot(this.sideV) > -0.2) this.sideV.lerp(sLive, 0.08);
-    }
+    u.copy(fwd).multiplyScalar(0.78).add(this._dn || (this._dn = new THREE.Vector3(0, -0.62, 0))).normalize();
+    // lado del pulgar: a la izquierda del brazo si es la mano derecha
     const s = this._ps || (this._ps = new THREE.Vector3());
-    s.copy(this.sideV || new THREE.Vector3(1, 0, 0));
+    s.set(0, 1, 0).cross(fwd);                 // izquierda de la dirección del brazo
+    if (this.ctx.handLeft && this.ctx.handLeft()) s.negate();
     s.addScaledVector(u, -s.dot(u)).normalize();
     const n = this._pn || (this._pn = new THREE.Vector3());
     n.crossVectors(u, s);
-    if (n.dot(fwd) > 0) n.negate(); // la palma mira hacia ti
+    if (n.y > 0) n.negate();                   // la palma mira hacia abajo; ves el dorso
     const scale = Math.max(0.6, Math.min(2.2, P[0].distanceTo(P[9]) / 0.092));
     if (!this.pose) this.pose = posedHand([0.08, 0.85, 0.9, 0.92], 0.65);
     const L = this.pose;

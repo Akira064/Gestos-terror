@@ -20,6 +20,7 @@ export const DEFAULT_TH = {
   handScale: 1.5,   // tamaño de la mano 3D
   reach: 1.15,      // alcance lateral (para llegar a los bordes)
   hover: 0.13,      // distancia para considerar la mano "encima" de un objeto
+  handLeft: 0,      // 0 = juegas con la mano derecha, 1 = con la izquierda
   stable: 1,        // 1 = mano estable reconstruida, 0 = puntos crudos de MediaPipe
   trigger: 0.18,    // cuánto tiene que doblarse el índice (rápido) para disparar
 };
@@ -41,6 +42,7 @@ export const TH_SPEC = [
   ['hover', 'Distancia obj.', 0.03, 0.25, 0.005],
   ['trigger', 'Gatillo', 0.06, 0.5, 0.01],
   ['stable', 'Mano estable', 0, 1, 1],
+  ['handLeft', 'Mano izquierda', 0, 1, 1],
 ];
 
 export function loadThresholds() {

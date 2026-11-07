@@ -102,6 +102,8 @@ const ctx = {
   camForward: (out) => camera.getWorldDirection(out),
   camera,
   shake: (a) => { shakeAmt = Math.max(shakeAmt, a); },
+  shoulder: (out) => shoulderPos(out),
+  handLeft: () => th.handLeft >= 0.5,
   setSanity: (v) => {
     post.setSanity(v);
     const bar = document.querySelector('#sanityBar i');
@@ -132,6 +134,15 @@ const P = Array.from({ length: 21 }, () => new THREE.Vector3());
 const palmW = new THREE.Vector3();
 const camW = new THREE.Vector3();
 const tmp = new THREE.Vector3();
+// Hombro: el brazo sale de aquí (a la derecha y por debajo de los ojos; gira contigo, no cabecea)
+const shoulderW = new THREE.Vector3();
+const elbowHint = new THREE.Vector3();
+const YAXIS = new THREE.Vector3(0, 1, 0);
+function shoulderPos(out) {
+  const yaw = GyroLook.yawOf(camera.quaternion, dir);
+  const side = th.handLeft >= 0.5 ? -1 : 1;
+  return out.set(side * 0.2, -0.24, 0.1).applyAxisAngle(YAXIS, yaw).add(camera.position);
+}
 const dir = new THREE.Vector3();
 const prevPalm = new THREE.Vector3();
 const palmN = new THREE.Vector3();
@@ -247,7 +258,9 @@ function updateHand(nowMs, dt) {
     if (vibeT <= 0) { vibrate(12); vibeT = 0.11; }
   } else sfx.setScrape(0);
 
-  hand.update(P, th.handScale);
+  const yawB = GyroLook.yawOf(camera.quaternion, dir);
+  elbowHint.set((th.handLeft >= 0.5 ? -1 : 1) * 0.45, -0.6, 0.55).applyAxisAngle(YAXIS, yawB);
+  hand.update(P, th.handScale, shoulderPos(shoulderW), elbowHint);
   hand.group.visible = true;
 
   // Abrir la mano suelta lo que llevas; cuánto cierras el puño = cuánto aprietas
