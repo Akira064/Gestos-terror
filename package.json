@@ -10,6 +10,7 @@
     "serve": "npx --yes http-server www -p 8080 -c-1"
   },
   "dependencies": {
+    "@capacitor-community/text-to-speech": "^6.0.0",
     "@capacitor/android": "^7.0.0",
     "@capacitor/core": "^7.0.0",
     "@capacitor/haptics": "^7.0.0",

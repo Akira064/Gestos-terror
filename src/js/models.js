@@ -43,7 +43,7 @@ export async function loadModels(world, onStatus) {
   } catch (e) {
     return [];
   }
-  if (!Array.isArray(names) || !names.length) return [];
+  if (!Array.isArray(names) || !names.length || !world.modelSlots) return [];
   const loader = new GLTFLoader();
   const loaded = [];
   for (const name of names) {

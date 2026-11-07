@@ -187,6 +187,13 @@ export function makeTex(kind) {
       noise(g, size, r, 18);
       break;
     }
+    case 'porcelain': {
+      g.fillStyle = '#ece8e0'; g.fillRect(0, 0, size, size);
+      g.fillStyle = '#3a5a9a'; g.fillRect(0, 6, size, 2); g.fillRect(0, 24, size, 1);
+      for (let x = 2; x < size; x += 6) { g.fillStyle = '#5a7ab8'; g.fillRect(x, 12, 2, 2); g.fillRect(x + 1, 15, 1, 3); }
+      noise(g, size, r, 10);
+      break;
+    }
     case 'gunmetal': {
       g.fillStyle = '#4a4e56'; g.fillRect(0, 0, size, size);
       for (let i = 0; i < 14; i++) { g.fillStyle = 'rgba(220,225,235,0.25)'; g.fillRect(Math.floor(r() * size), Math.floor(r() * size), 1 + Math.floor(r() * 6), 1); }
@@ -267,21 +274,32 @@ export class PS1Renderer {
         uFlash: { value: 0 },
         uFlashColor: { value: new THREE.Vector3(1, 1, 1) },
         uTime: { value: 0 },
+        uT: { value: 0 },
+        uIns: { value: 0 },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
       fragmentShader: `
         uniform sampler2D tDiffuse; uniform vec2 uRes; uniform float uFlash; uniform vec3 uFlashColor; uniform float uTime;
+        uniform float uT; uniform float uIns;
         varying vec2 vUv;
         const float B[16] = float[16](0.,8.,2.,10.,12.,4.,14.,6.,3.,11.,1.,9.,15.,7.,13.,5.);
         void main(){
-          vec3 c = texture2D(tDiffuse, vUv).rgb;
+          // locura: la imagen ondula y pierde color
+          vec2 uv = vUv;
+          float ins = uIns * uIns;
+          uv.x += sin(uv.y * 14.0 + uT * 1.7) * 0.006 * ins;
+          uv.y += sin(uv.x * 11.0 + uT * 1.3) * 0.004 * ins;
+          vec3 c = texture2D(tDiffuse, uv).rgb;
+          float lum = dot(c, vec3(0.3, 0.59, 0.11));
+          c = mix(c, vec3(lum * 1.05, lum * 0.92, lum * 0.9), uIns * 0.7);
           c = pow(max(c, vec3(0.0)), vec3(1.0/2.2));
           vec2 px = floor(vUv * uRes);
           int bi = int(mod(px.y, 4.0)) * 4 + int(mod(px.x, 4.0));
           float d = (B[bi] / 16.0 - 0.5) / 24.0;
           c = floor((c + d) * 24.0 + 0.5) / 24.0;
           float vig = smoothstep(0.85, 0.25, length((vUv - 0.5) * vec2(1.25, 1.0)));
-          c *= mix(0.45, 1.0, vig);
+          c *= mix(0.45 - 0.35 * uIns, 1.0, vig);
+          c.r += ins * 0.06 * (0.5 + 0.5 * sin(uT * 3.0)) * (1.0 - vig);
           float grain = fract(sin(dot(px + uTime, vec2(12.9898, 78.233))) * 43758.5453);
           c += (grain - 0.5) * 0.035;
           c = mix(c, uFlashColor, clamp(uFlash, 0.0, 1.0));
@@ -306,6 +324,10 @@ export class PS1Renderer {
     snapUniform.value.set(lw / 2, lh / 2);
   }
 
+  setSanity(v) {
+    this.mat.uniforms.uIns.value = Math.max(0, Math.min(1, 1 - v / 100));
+  }
+
   doFlash(color, amount) {
     this.flashColor.set(color);
     this.flash = Math.max(this.flash, amount);
@@ -316,6 +338,7 @@ export class PS1Renderer {
     this.mat.uniforms.uFlash.value = this.flash;
     this.mat.uniforms.uFlashColor.value.set(this.flashColor.r, this.flashColor.g, this.flashColor.b);
     this.mat.uniforms.uTime.value = Math.floor(time * 24) % 100;
+    this.mat.uniforms.uT.value = time % 1000;
     const r = this.renderer;
     r.setRenderTarget(this.rt);
     r.render(scene, camera);

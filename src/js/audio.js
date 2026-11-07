@@ -167,6 +167,41 @@ export class Sfx {
         for (let i = 0; i < 7; i++) this.tone('sine', 2500 + Math.random() * 3500, 1800, 0.3 + Math.random() * 0.4, 0.08, Math.random() * 0.4);
         this.burst(0.2, 0.6, 'lowpass', 400, 100, 1);
         break;
+      case 'whisper':
+        // varios susurros de ruido filtrado, como voces sin palabras
+        for (let i = 0; i < 4; i++) {
+          const f = 2200 + Math.random() * 2500;
+          this.burst(0.25 + Math.random() * 0.35, 0.12, 'bandpass', f, f * 0.7, 6, i * (0.12 + Math.random() * 0.15));
+        }
+        break;
+      case 'ghost':
+        this.tone('sine', 110, 104, 3.5, 0.18);
+        this.tone('sine', 116.5, 110, 3.5, 0.14);
+        this.tone('triangle', 233, 220, 3.0, 0.05, 0.3);
+        this.burst(3.0, 0.12, 'bandpass', 600, 1400, 3);
+        break;
+      case 'whoosh':
+        this.burst(0.5, 0.7, 'bandpass', 400, 3000, 1.5);
+        break;
+      case 'hit':
+        this.burst(0.4, 1.0, 'lowpass', 1800, 100, 0.8);
+        this.tone('sine', 90, 30, 0.5, 0.8);
+        this.play('shatter');
+        break;
+      case 'shatter':
+        this.burst(0.35, 0.8, 'highpass', 3500, 6000, 0.8);
+        for (let i = 0; i < 6; i++) this.tone('sine', 3000 + Math.random() * 3000, 2200, 0.2 + Math.random() * 0.3, 0.06, Math.random() * 0.25);
+        break;
+      case 'puff':
+        this.burst(0.25, 0.35, 'lowpass', 900, 200, 0.7);
+        break;
+      case 'bell':
+        [196, 247, 294].forEach((f, i) => this.tone('sine', f, f * 0.995, 2.2, 0.08 - i * 0.02));
+        break;
+      case 'heartbeat':
+        this.tone('sine', 62, 40, 0.16, 0.6);
+        this.tone('sine', 58, 38, 0.14, 0.45, 0.22);
+        break;
       case 'gunshot':
         this.burst(0.35, 1.0, 'lowpass', 5000, 300, 0.7);
         this.burst(0.05, 0.9, 'highpass', 2000, 2000, 0.7);

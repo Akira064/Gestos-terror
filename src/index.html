@@ -18,6 +18,8 @@
     <div id="timer">00:00.0</div>
     <div id="inv"></div>
     <div id="handState">MANO —</div>
+    <div id="sanity" hidden><span>CORDURA</span><div id="sanityBar"><i></i></div></div>
+    <div id="voice"></div>
     <div id="hint"></div>
     <div id="msg"></div>
   </div>
@@ -49,12 +51,13 @@
       <li><b>Agarrar</b> · mano abierta que se cierra</li>
       <li><b>Llave</b> · gira la muñeca</li>
     </ul>
-    <button id="btnStart" class="btn">EMPEZAR</button>
+    <button id="btnStart" class="btn">NOCHE 1 · LA OUIJA</button>
+    <button id="btnTest" class="btn small test">SALA DE PRUEBAS</button>
     <p id="status"></p>
   </div>
 
   <div id="end" class="screen" hidden>
-    <h1>HAS<br><span>ESCAPADO</span></h1>
+    <h1 id="endTitle">HAS<br><span>ESCAPADO</span></h1>
     <p id="endTime"></p>
     <p id="endBest"></p>
     <button id="btnAgain" class="btn">OTRA VEZ</button>

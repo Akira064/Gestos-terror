@@ -1,5 +1,7 @@
 # Gestos Terror
 
+**Noche 1 · La Ouija**: sentado ante una mesa, con el dedo sobre un vaso, contestas a un espíritu. Si fallas o lo enfadas, se abre el mueble, levitan las tazas y te las lanza (puedes apartarlas de un manotazo). Si tu cordura llega a cero, la maldición sale. La **Sala de pruebas** es el escape room original.
+
 Escape room de terror con estética PS1 para Android. Sujetas el móvil con una mano y pones la otra **detrás**, delante de la cámara trasera: una mano 3D low poly (con manga) aparece en el juego donde está tu mano real. La pantalla nunca muestra la cámara.
 
 **Tecnología:** HTML/JavaScript + three.js + MediaPipe Hands (Tasks Vision), empaquetado con Capacitor 7. Todo va dentro del APK (three.js, wasm de MediaPipe y el modelo `hand_landmarker.task`); el juego no usa internet al jugar.

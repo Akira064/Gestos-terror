@@ -8,6 +8,8 @@ import { HandModel } from './handModel.js';
 import { World } from './world.js';
 import { DebugPanel } from './debug.js';
 import { loadModels } from './models.js';
+import { OuijaScene } from './ouija.js';
+import { Voice } from './voice.js';
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('game');
@@ -75,30 +77,48 @@ let running = false;
 let startT = 0;
 let elapsed = 0;
 
-const world = new World(scene, {
+let shakeAmt = 0;
+const voice = new Voice($('voice'), sfx);
+function endGame({ title, line1, line2 }) {
+  running = false;
+  sfx.setScrape(0);
+  $('endTitle').innerHTML = title;
+  $('endTime').textContent = line1;
+  $('endBest').textContent = line2;
+  $('end').hidden = false;
+  ['hud', 'joy', 'btnCrouch', 'btnDrop', 'btnRecenter'].forEach((id) => ($(id).hidden = true));
+  tracker.setTorch(false);
+}
+const ctx = {
   sfx,
   msg,
   vibrate,
   vibratePattern,
+  voice,
   flash: (c, a) => post.doFlash(c, a),
   inventory: (t) => { $('inv').textContent = t; },
   onShock: () => { recoil = 0.25; },
   camYaw: () => GyroLook.yawOf(camera.quaternion, new THREE.Vector3()),
   camForward: (out) => camera.getWorldDirection(out),
   camera,
+  shake: (a) => { shakeAmt = Math.max(shakeAmt, a); },
+  setSanity: (v) => {
+    post.setSanity(v);
+    const bar = document.querySelector('#sanityBar i');
+    bar.style.width = v + '%';
+    bar.style.background = v > 60 ? '#b8a070' : v > 30 ? '#c06a30' : '#b02010';
+  },
+  onEnd: endGame,
   onWin: () => {
-    running = false;
     const best = Math.min(elapsed, parseFloat(localStorage.getItem('gt_best') || 'Infinity'));
     try { localStorage.setItem('gt_best', String(best)); } catch (e) { /* nada */ }
-    $('endTime').textContent = fmt(elapsed);
-    $('endBest').textContent = 'Mejor tiempo: ' + fmt(best);
-    $('end').hidden = false;
-    ['hud', 'joy', 'btnCrouch', 'btnDrop', 'btnRecenter'].forEach((id) => ($(id).hidden = true));
-    tracker.setTorch(false);
+    endGame({ title: 'HAS<br><span>ESCAPADO</span>', line1: fmt(elapsed), line2: 'Mejor tiempo: ' + fmt(best) });
   },
-});
+};
+let world = null;
 
 const player = new THREE.Vector3(0, 0, 1.8);
+let eyeStand = 1.45;
 // Agacharse: altura de los ojos de pie / agachado
 const EYE_STAND = 1.45, EYE_CROUCH = 0.9;
 let crouched = false;
@@ -250,12 +270,17 @@ function frame(now) {
     gyro.update(camera.quaternion, 0);
     const yaw = GyroLook.yawOf(camera.quaternion, tmp);
     motion.maxSpeed = crouched ? 0.7 : 1.5;
-    eye += ((crouched ? EYE_CROUCH : EYE_STAND) - eye) * Math.min(1, dt * 6);
+    eye += ((crouched ? EYE_CROUCH : eyeStand) - eye) * Math.min(1, dt * 6);
     const speed = motion.update(dt, joystick, yaw, player, (x, z) => world.collide(x, z), world.lockMove);
     stepAcc += speed * dt;
     if (stepAcc > 0.65) { stepAcc = 0; sfx.play('step'); }
     const bob = Math.sin(motion.walked * 9) * 0.018 * Math.min(1, speed);
     camera.position.set(player.x, eye + bob, player.z);
+    if (shakeAmt > 0.001) {
+      camera.position.x += (Math.random() - 0.5) * shakeAmt * 0.06;
+      camera.position.y += (Math.random() - 0.5) * shakeAmt * 0.06;
+      shakeAmt *= Math.exp(-dt * 5);
+    }
     camera.updateMatrixWorld(true);
 
     updateHand(now, dt);
@@ -289,10 +314,9 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // ---------- Inicio ----------
-$('btnStart').addEventListener('click', async () => {
-  const btn = $('btnStart');
+async function startGame(sceneName, btn) {
   const status = $('status');
-  btn.disabled = true;
+  ['btnStart', 'btnTest'].forEach((id) => ($(id).disabled = true));
   sfx.init();
   try {
     if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -302,28 +326,40 @@ $('btnStart').addEventListener('click', async () => {
     status.textContent = 'Activando cámara trasera y flash…';
     await tracker.startCamera();
     await tracker.loadModel((t) => (status.textContent = t));
+    if (!world) {
+      world = sceneName === 'ouija' ? new OuijaScene(scene, ctx) : new World(scene, ctx);
+      if (world.start) player.copy(world.start);
+      if (world.eyeHeight) { eyeStand = world.eyeHeight; eye = eyeStand; }
+    }
     await loadModels(world, (t) => (status.textContent = t)).catch((e) => console.warn(e));
   } catch (e) {
     console.error(e);
     status.style.color = '#d06050';
     status.textContent = (e && e.message) || String(e);
-    btn.disabled = false;
+    ['btnStart', 'btnTest'].forEach((id) => ($(id).disabled = false));
     btn.textContent = 'REINTENTAR';
     return;
   }
   $('menu').hidden = true;
-  ['hud', 'joy', 'btnCrouch', 'btnDebug', 'btnRecenter'].forEach((id) => ($(id).hidden = false));
+  const seated = !!world.seated;
+  ['hud', 'btnDebug', 'btnRecenter'].forEach((id) => ($(id).hidden = false));
+  ['joy', 'btnCrouch'].forEach((id) => ($(id).hidden = seated));
+  $('timer').hidden = seated;
+  $('sanity').hidden = !seated;
+  if (seated) { scene.fog.near = 0.8; scene.fog.far = 4.5; }
   gyro.needRecenter = true;
   running = true;
   startT = performance.now();
-  if (!tracker.torchOn) setTimeout(() => !tracker.torchOn && msg('Tu móvil no deja encender el flash desde la app. Busca algo de luz.', 4), 1500);
-  msg('Pon la mano detrás del móvil, delante de la cámara.', 4);
-});
+  if (!seated && !tracker.torchOn) setTimeout(() => !tracker.torchOn && msg('Tu móvil no deja encender el flash desde la app. Busca algo de luz.', 4), 1500);
+  if (!seated) msg('Pon la mano detrás del móvil, delante de la cámara.', 4);
+}
+$('btnStart').addEventListener('click', () => startGame('ouija', $('btnStart')));
+$('btnTest').addEventListener('click', () => startGame('test', $('btnTest')));
 
 $('btnDebug').addEventListener('click', () => debug.toggle());
 $('btnDrop').addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  if (world.dropHeld()) vibrate(20);
+  if (world && world.dropHeld()) vibrate(20);
 });
 $('btnCrouch').addEventListener('pointerdown', (e) => {
   e.preventDefault();
