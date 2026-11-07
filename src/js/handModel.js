@@ -104,15 +104,18 @@ export class HandModel {
     // brazo: hombro -> codo -> muñeca (el codo cae hacia abajo y hacia fuera, como un brazo de verdad)
     const W = P[0];
     if (shoulder) {
-      const d = this._d.copy(W).sub(shoulder);
-      const dist = Math.max(0.05, d.length());
-      d.divideScalar(dist);
-      const seg = Math.max(0.28, dist * 0.56);              // longitud de brazo y antebrazo
-      const h = Math.sqrt(Math.max(0, seg * seg - (dist / 2) * (dist / 2)));
-      // el codo cae hacia abajo y hacia tu cuerpo (así el antebrazo entra por la esquina inferior)
-      const bend = bendHint ? this._e.copy(bendHint) : this._e.set(0.45, -0.6, 0.55);
-      bend.addScaledVector(d, -bend.dot(d)).normalize();
-      const elbow = this._c.copy(shoulder).addScaledVector(d, dist / 2).addScaledVector(bend, h);
+      // El antebrazo sigue la dirección de la mano (la muñeca apenas se dobla, como en la vida real)
+      // y el codo queda detrás, en línea. El brazo une ese codo con el hombro.
+      const handDir = this._d.copy(P[9]).sub(P[0]).normalize();
+      const fromShoulder = this._e.copy(W).sub(shoulder);
+      const dist = Math.max(0.05, fromShoulder.length());
+      fromShoulder.divideScalar(dist);
+      const fDir = this._b.copy(handDir).multiplyScalar(0.7).addScaledVector(fromShoulder, 0.3);
+      if (fDir.dot(fromShoulder) < 0.15) fDir.addScaledVector(fromShoulder, 0.15 - fDir.dot(fromShoulder));
+      fDir.normalize();
+      const foreLen = Math.min(0.32, Math.max(0.12, dist * 0.6));
+      const elbow = this._c.copy(W).addScaledVector(fDir, -foreLen);
+      if (bendHint) elbow.addScaledVector(bendHint, 0.04);   // un poco hacia abajo y hacia tu cuerpo
       this.placeLimb(this.sleeve, W, elbow, 0.9);
       this.placeLimb(this.upper, elbow, shoulder, 0.9);
       this.upper.visible = true;

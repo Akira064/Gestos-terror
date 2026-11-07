@@ -392,8 +392,9 @@ export class OuijaScene {
     fwd.set(top.x - sh.x, 0, top.z - sh.z);
     if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
     fwd.normalize();
+    // índice en la línea del brazo (del hombro al vaso), solo un poco más inclinado hacia abajo
     const u = this._pu || (this._pu = new THREE.Vector3());
-    u.copy(fwd).multiplyScalar(0.78).add(this._dn || (this._dn = new THREE.Vector3(0, -0.62, 0))).normalize();
+    u.copy(top).sub(sh).normalize().add(this._dn || (this._dn = new THREE.Vector3(0, -0.06, 0))).normalize();
     // lado del pulgar: a la izquierda del brazo si es la mano derecha
     const s = this._ps || (this._ps = new THREE.Vector3());
     s.set(0, 1, 0).cross(fwd);                 // izquierda de la dirección del brazo
@@ -403,7 +404,7 @@ export class OuijaScene {
     n.crossVectors(u, s);
     if (n.y > 0) n.negate();                   // la palma mira hacia abajo; ves el dorso
     const scale = Math.max(0.6, Math.min(2.2, P[0].distanceTo(P[9]) / 0.092));
-    if (!this.pose) this.pose = posedHand([0.08, 0.85, 0.9, 0.92], 0.65);
+    if (!this.pose) this.pose = posedHand([0.03, 0.5, 0.78, 0.85], 0.5); // índice estirado, corazón a medias
     const L = this.pose;
     const tipL = L[8];
     const out = this.posePts || (this.posePts = Array.from({ length: 21 }, () => new THREE.Vector3()));
