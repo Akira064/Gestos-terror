@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { ps1Mat, boxGeo, makeTex } from './ps1.js';
 
 const TABLE_Y = 0.76;                 // superficie de la mesa
-const BOARD = { x: 0, z: -0.47, w: 0.54, d: 0.38 };
+const BOARD = { x: 0, z: -0.29, w: 0.54, d: 0.38 };  // pegado al borde de la mesa, delante de ti
 const GLASS_H = 0.085;
 const GLASS_TOP = TABLE_Y + 0.003 + GLASS_H;
 const ZONE_R = 0.055;
@@ -89,7 +89,7 @@ export class OuijaScene {
     this.items = [];
     this.seated = true;
     this.eyeHeight = 1.17;
-    this.start = new THREE.Vector3(0, 0, 0.05);
+    this.start = new THREE.Vector3(0, 0, -0.02);
     this.lockMove = true;
     this.flashFactor = 0;
     this.time = 0;
@@ -204,7 +204,7 @@ export class OuijaScene {
     // velas: 3 encendidas y 1 apagada
     this.candles = [];
     const wax = ps1Mat({ map: makeTex('concrete'), color: 0xeae0c8 });
-    const spots = [[-0.33, -0.95, 0.16, true], [0.33, -0.95, 0.12, true], [0.02, -1.55, 0.18, true], [0.34, -0.25, 0.1, false]];
+    const spots = [[-0.33, -0.95, 0.16, true], [0.33, -0.95, 0.12, true], [0.02, -1.55, 0.18, true], [0.4, -0.42, 0.1, false]];
     for (const [x, z, h, lit] of spots) {
       const g = new THREE.Group();
       g.position.set(x, TABLE_Y, z);
