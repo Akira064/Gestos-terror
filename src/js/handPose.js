@@ -104,7 +104,38 @@ export function posedHand(curls, thumbC) {
   return pts;
 }
 
+const _v = Array.from({ length: 6 }, () => new THREE.Vector3());
+const _qa = new THREE.Quaternion();
+const SWING_SLACK = 2 * DEG, TWIST_SLACK = 7 * DEG;
+
 export class HandRetarget {
+  // Gira this.q hacia target en dos partes: hacia dónde apuntan los dedos (aSwing) y el giro de la mano
+  // sobre su propio eje (aTwist). Los cambios muy pequeños se ignoran (holgura).
+  blendQ(target, aSwing, aTwist) {
+    const uP = _v[0].set(0, 1, 0).applyQuaternion(this.q);
+    const uT = _v[1].set(0, 1, 0).applyQuaternion(target);
+    const sw = uP.angleTo(uT);
+    if (sw > SWING_SLACK) {
+      const k = Math.min(1, aSwing * (sw - SWING_SLACK) / sw);
+      const uN = _v[2].copy(uP).lerp(uT, k).normalize();
+      _qa.setFromUnitVectors(uP, uN);
+      this.q.premultiply(_qa);
+    }
+    const u = _v[3].set(0, 1, 0).applyQuaternion(this.q);
+    const xP = _v[4].set(1, 0, 0).applyQuaternion(this.q);
+    xP.addScaledVector(u, -xP.dot(u)).normalize();
+    const xT = _v[5].set(1, 0, 0).applyQuaternion(target);
+    xT.addScaledVector(u, -xT.dot(u));
+    if (xT.lengthSq() < 1e-8) return;
+    xT.normalize();
+    const phi = Math.atan2(_v[1].crossVectors(xP, xT).dot(u), xP.dot(xT));
+    if (Math.abs(phi) > TWIST_SLACK) {
+      _qa.setFromAxisAngle(u, (phi - Math.sign(phi) * TWIST_SLACK) * aTwist);
+      this.q.premultiply(_qa);
+    }
+    this.q.normalize();
+  }
+
   constructor() {
     this.q = new THREE.Quaternion();
     this.hasQ = false;
@@ -142,7 +173,9 @@ export class HandRetarget {
       const ux = I[9].x - I[0].x, uy = I[9].y - I[0].y, sx = I[5].x - I[17].x, sy = I[5].y - I[17].y;
       const c = (ux * sy - uy * sx) / (Math.hypot(ux, uy) * Math.hypot(sx, sy) + 1e-9);
       if (Math.abs(c) > 0.3) this.palmVisible = (c > 0) !== !!handLeft;   // si no, se mantiene lo anterior
-    }
+      // confianza en el giro de la mano: alta de frente o de dorso, casi nula de canto
+      this.conf = Math.max(0.04, Math.min(1, (Math.abs(c) - 0.12) / 0.4));
+    } else this.conf = 1;
     if (this.palmVisible !== undefined) {
       const u3 = this._u.copy(W[9]).sub(W[0]);
       const s3 = this._s.copy(W[5]).sub(W[17]);
@@ -183,7 +216,8 @@ export class HandRetarget {
       } else this.hasCand = false;
       if (accept) this.lastRaw.copy(this._qn);
       const ang = this.q.angleTo(this.lastRaw);
-      this.q.slerp(this.lastRaw, Math.min(0.75, 0.3 + ang * 1.2));
+      const a = Math.min(0.75, 0.3 + ang * 1.2);
+      this.blendQ(this.lastRaw, a, a * this.conf);
     }
     this.scale += (Math.min(1.4, Math.max(0.7, palmLen / PALM_LEN)) - this.scale) * 0.05;
 
@@ -192,15 +226,20 @@ export class HandRetarget {
     const qz = (this._qz || (this._qz = new THREE.Vector3())).set(0, 0, 1).applyQuaternion(this.q);
     this.edge = Math.abs(qz.z) < 0.3;
     const a = this.edge ? 0.06 : 0.45;
+    // con holgura: el ruido no dobla los dedos; un cambio claro (cerrar el puño) se sigue enseguida
+    const follow = (cur, c) => {
+      const d = c - cur, slack = 0.09;
+      return Math.abs(d) <= slack ? cur : cur + (d - Math.sign(d) * slack) * a;
+    };
     FINGERS.forEach((f, i) => {
       const m = f.mcp;
       const segs = W[m].distanceTo(W[m + 1]) + W[m + 1].distanceTo(W[m + 2]) + W[m + 2].distanceTo(W[m + 3]);
       const chord = W[m].distanceTo(W[m + 3]);
       const c = invert(FINGER_TABLES[i], chord / Math.max(segs, 1e-4));
-      this.curl[i] += (c - this.curl[i]) * a;
+      this.curl[i] = follow(this.curl[i], c);
     });
     const tc = invert(THUMB_TABLE, W[4].distanceTo(W[17]) / palmLen);
-    this.thumb += (tc - this.thumb) * a;
+    this.thumb = follow(this.thumb, tc);
 
     // --- reconstrucción en el sistema de MediaPipe ---
     const S = this.scale;
