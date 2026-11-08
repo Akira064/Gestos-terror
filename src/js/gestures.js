@@ -170,7 +170,7 @@ export class HandGestures {
     // Mano estable: palma rígida + dedos reconstruidos a partir de cuánto se doblan
     const pinchRaw = W[4].distanceTo(W[8]) / Math.max(0.03, W[0].distanceTo(W[9]));
     const pinchW = Math.max(0, Math.min(1, (th.pinch + 0.15 - pinchRaw) / 0.15));
-    const SRC = th.stable >= 0.5 ? this.retarget.update(W, pinchW) : W;
+    const SRC = th.stable >= 0.5 ? this.retarget.update(W, pinchW, I, th.handLeft >= 0.5) : W;
     const wp = this._p.set(0, 0, 0);
     for (const k of PALM) wp.add(SRC[k]);
     wp.multiplyScalar(1 / PALM.length);
@@ -284,7 +284,7 @@ export class HandGestures {
       pose: this.pose, pinch, open, maxOpen: this.maxOpen, idx, idxPull: idxMax - idx, speed, peak: this.peak, depth, gameDepth,
       pinchDrop: this.pinchDrop, fistDrop: this.fistDrop,
       twist: this.twistAcc / DEG, vy: this.vel.y,
-      curls: this.retarget.curl, thumbC: this.retarget.thumb, edge: this.retarget.edge, palmSign: this.retarget.palmSign,
+      curls: this.retarget.curl, thumbC: this.retarget.thumb, edge: this.retarget.edge, palmSign: this.retarget.palmSign, palmVisible: this.retarget.palmVisible, mirrored: this.retarget.mirrored,
     };
     if (events.length) this.v.lastEvents = events.join(',');
     return events;

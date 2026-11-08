@@ -131,7 +131,31 @@ export class HandRetarget {
   }
 
   // W: 21 Vector3 (coordenadas de mundo de MediaPipe, ya filtradas). pinchW: 0..1
-  update(W, pinchW) {
+  // I: 21 puntos 2D de la imagen. handLeft: juegas con la mano izquierda.
+  update(W, pinchW, I = null, handLeft = false) {
+    // --- ¿palma o dorso? ---
+    // Con una sola cámara, la profundidad que estima MediaPipe a veces sale invertida y el dorso
+    // parece la palma. Pero sabiendo qué mano es, la posición del pulgar en la imagen (2D, fiable) lo dice:
+    // mano derecha vista por el dorso -> pulgar a la izquierda; vista por la palma -> a la derecha.
+    this.palmSign = handLeft ? -1 : 1;
+    if (I) {
+      const ux = I[9].x - I[0].x, uy = I[9].y - I[0].y, sx = I[5].x - I[17].x, sy = I[5].y - I[17].y;
+      const c = (ux * sy - uy * sx) / (Math.hypot(ux, uy) * Math.hypot(sx, sy) + 1e-9);
+      if (Math.abs(c) > 0.3) this.palmVisible = (c > 0) !== !!handLeft;   // si no, se mantiene lo anterior
+    }
+    if (this.palmVisible !== undefined) {
+      const u3 = this._u.copy(W[9]).sub(W[0]);
+      const s3 = this._s.copy(W[5]).sub(W[17]);
+      const nz = this._z.crossVectors(s3, u3).normalize().z * this.palmSign; // <0: la palma mira a la cámara
+      if (Math.abs(nz) > 0.2 && (nz < 0) !== this.palmVisible) {
+        // MediaPipe ha invertido la profundidad: se corrige reflejándola
+        const Wm = this._wm || (this._wm = Array.from({ length: 21 }, () => new THREE.Vector3()));
+        for (let i = 0; i < 21; i++) Wm[i].set(W[i].x, W[i].y, -W[i].z);
+        W = Wm;
+        this.mirrored = true;
+      } else this.mirrored = false;
+    }
+
     // --- marco de la palma: solo muñeca y nudillos (los puntos más fiables) ---
     const u = this._u.copy(W[9]).sub(W[0]);
     const palmLen = u.length();
@@ -168,24 +192,15 @@ export class HandRetarget {
     const qz = (this._qz || (this._qz = new THREE.Vector3())).set(0, 0, 1).applyQuaternion(this.q);
     this.edge = Math.abs(qz.z) < 0.3;
     const a = this.edge ? 0.06 : 0.45;
-    let side = 0;
     FINGERS.forEach((f, i) => {
       const m = f.mcp;
       const segs = W[m].distanceTo(W[m + 1]) + W[m + 1].distanceTo(W[m + 2]) + W[m + 2].distanceTo(W[m + 3]);
       const chord = W[m].distanceTo(W[m + 3]);
       const c = invert(FINGER_TABLES[i], chord / Math.max(segs, 1e-4));
       this.curl[i] += (c - this.curl[i]) * a;
-      if (c > 0.35) side += this._d.copy(W[m + 3]).sub(W[m]).dot(z) * c;
     });
     const tc = invert(THUMB_TABLE, W[4].distanceTo(W[17]) / palmLen);
     this.thumb += (tc - this.thumb) * a;
-
-    // hacia qué lado está la palma: los dedos doblados apuntan a ella (votación con memoria)
-    if (!this.edge && Math.abs(side) > 0.01) {
-      this.vote = Math.max(-20, Math.min(20, this.vote + Math.sign(side) * Math.min(1, Math.abs(side) / 0.03)));
-      if (this.vote > 4) this.palmSign = 1;
-      else if (this.vote < -4) this.palmSign = -1;
-    }
 
     // --- reconstrucción en el sistema de MediaPipe ---
     const S = this.scale;
