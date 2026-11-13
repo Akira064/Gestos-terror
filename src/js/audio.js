@@ -21,6 +21,7 @@ export class Sfx {
     this._ambient();
     this._scrape();
     this._hum();
+    this._creak();
   }
 
   get t() { return this.ctx ? this.ctx.currentTime : 0; }
@@ -103,6 +104,42 @@ export class Sfx {
     const v = Math.min(0.5, Math.max(0, level));
     this.scrapeGain.gain.setTargetAtTime(v, this.t, 0.04);
     this.scrapeFilter.frequency.setTargetAtTime(900 + 1600 * pitch, this.t, 0.05);
+  }
+
+  // crujido continuo de bisagra: más fuerte y más agudo cuanto más rápido se mueve la puerta
+  _creak() {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.value = 70;
+    const wob = ctx.createOscillator();
+    wob.frequency.value = 9;
+    const wobG = ctx.createGain();
+    wobG.gain.value = 18;
+    wob.connect(wobG).connect(o.frequency);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 900;
+    bp.Q.value = 4;
+    const n = this._noise();
+    const nf = ctx.createBiquadFilter();
+    nf.type = 'bandpass'; nf.frequency.value = 1800; nf.Q.value = 6;
+    const ng = ctx.createGain();
+    ng.gain.value = 0.25;
+    const g = ctx.createGain();
+    g.gain.value = 0;
+    o.connect(bp).connect(g);
+    n.connect(nf).connect(ng).connect(g);
+    g.connect(this.master);
+    o.start(); wob.start(); n.start();
+    this.creakGain = g; this.creakOsc = o; this.creakBp = bp;
+  }
+
+  setCreak(level, pitch = 0.5) {
+    if (!this.ctx) return;
+    this.creakGain.gain.setTargetAtTime(Math.max(0, Math.min(0.5, level)), this.t, 0.06);
+    this.creakOsc.frequency.setTargetAtTime(55 + pitch * 90, this.t, 0.08);
+    this.creakBp.frequency.setTargetAtTime(700 + pitch * 900, this.t, 0.08);
   }
 
   setHum(v) {
@@ -224,6 +261,20 @@ export class Sfx {
       case 'clunk':
         this.burst(0.12, 0.6, 'lowpass', 900, 200, 1);
         this.tone('triangle', 400, 250, 0.1, 0.08);
+        break;
+      case 'slam':
+        this.burst(0.5, 1.0, 'lowpass', 600, 60, 0.8);
+        this.tone('sine', 75, 35, 0.6, 0.9);
+        this.burst(0.08, 0.7, 'bandpass', 2400, 1800, 2, 0.02);     // pestillo
+        for (let i = 0; i < 4; i++) this.burst(0.05, 0.25, 'bandpass', 1200, 900, 3, 0.1 + i * 0.07); // marco vibrando
+        this.burst(1.4, 0.15, 'lowpass', 500, 100, 0.7, 0.15);      // eco
+        break;
+      case 'latch':
+        this.burst(0.04, 0.6, 'bandpass', 2600, 2000, 3);
+        this.tone('square', 900, 600, 0.04, 0.05, 0.02);
+        break;
+      case 'rattle':
+        for (let i = 0; i < 3; i++) this.burst(0.03, 0.35, 'bandpass', 1900 + Math.random() * 500, 1500, 4, i * 0.045);
         break;
       case 'bounce':
         this.tone('sine', 300 + Math.random() * 120, 180, 0.08, 0.1);

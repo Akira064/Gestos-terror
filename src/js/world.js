@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { ps1Mat, boxGeo, makeTex, makeTextTex } from './ps1.js';
 import { Balls } from './balls.js';
 import { Gun } from './gun.js';
+import { Door } from './doors.js';
 
 const PLAYER_R = 0.24;
 
@@ -27,6 +28,7 @@ export class World {
     this.build();
     this.buildWindows();
     this.buildPlush();
+    this.buildDoorCorridor();
     this.mixers = [];
     this.defineModelSlots();
   }
@@ -156,7 +158,48 @@ export class World {
   }
 
   // Contacto blando: devuelve cuánto hay que empujar la mano (o null). Aplasta el peluche.
-  softTouch(palm, P) {
+  // ---------- pasillo de pruebas: puerta con pomo y puerta con maneta ----------
+  buildDoorCorridor() {
+    const wall = this.mat('wallpaper', 0xb0a090);
+    const floor = this.mat('wood', 0x9a8068);
+    const ceil = this.mat('ceiling');
+    const frame = this.mat('wood', 0x5a3a28);
+    const z0 = 2.7, z1 = 9.0, xl = 0.6, xr = 2.0, zc = (z0 + z1) / 2, len = z1 - z0;
+    this.box(1.6, 0.1, len, 1.3, -0.05, zc, floor, { block: false, ts: 0.8 });
+    this.box(1.6, 0.1, len, 1.3, 2.45, zc, ceil, { block: false, ts: 0.8 });
+    this.box(0.2, 2.5, len, xl - 0.1, 1.25, zc, wall, { ts: 1.2 });
+    this.box(0.2, 2.5, len, xr + 0.1, 1.25, zc, wall, { ts: 1.2 });
+    this.box(1.6, 2.5, 0.2, 1.3, 1.25, z1 + 0.1, wall, { ts: 1.2 });
+    this.doors = [];
+    for (const [dz, kind] of [[4.4, 'pomo'], [6.9, 'maneta']]) {
+      // marco: 0,25 m de pared a cada lado del hueco de 0,9 m y dintel
+      this.box(0.25, 2.4, 0.16, xl + 0.125, 1.2, dz, frame);
+      this.box(0.25, 2.4, 0.16, xr - 0.125, 1.2, dz, frame);
+      this.box(0.9, 0.32, 0.16, 1.3, 2.24, dz, frame);
+      this.doors.push(new Door(this, { x: xl + 0.25, z: dz, kind }));
+    }
+    // cartel
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.15), new THREE.MeshBasicMaterial({
+      map: makeTextTex('PRUEBA · PUERTAS', { w: 128, h: 32, color: '#e8d8a0', bg: '#201810', font: 'bold 12px monospace' }), color: 0x888888 }));
+    sign.position.set(1.3, 2.2, z0 + 0.02);
+    sign.rotation.y = Math.PI;
+    this.scene.add(sign);
+    const lamp = new THREE.PointLight(0xffe0b0, 1.2, 6, 2);
+    lamp.position.set(1.3, 2.2, 5.6);
+    this.scene.add(lamp);
+  }
+
+  heldDoor() { return this.doors ? this.doors.find((d) => d.held) : null; }
+
+  softTouch(palm, P, palmRaw = palm) {
+    // puertas: agarrar la manilla o empujar la hoja
+    if (this.doors) {
+      const held = this.heldDoor();
+      if (held) {
+        const off = held.touch(palmRaw, this._dt || 0.016);
+        if (off) return off;
+      } else for (const d of this.doors) d.touch(palmRaw, this._dt || 0.016);
+    }
     this.squashTarget = this.plushHeld ? 0.25 : 0;
     if (this.plushHeld || !this.plush) return null;
     this.plush.updateWorldMatrix(true, false);
@@ -210,6 +253,8 @@ export class World {
 
   // Botón SOLTAR: deja caer lo que lleves, sin impulso
   dropHeld() {
+    const hd = this.heldDoor();
+    if (hd) { hd.release(); return true; }
     const zero = new THREE.Vector3();
     if (this.gun && this.gun.held) this.gun.release(zero);
     else if (this.balls && this.balls.held) this.balls.release(zero);
@@ -220,7 +265,7 @@ export class World {
   }
 
   handBusy() {
-    return !!(this.plushHeld || (this.balls && this.balls.held) || (this.gun && this.gun.held));
+    return !!(this.heldDoor() || this.plushHeld || (this.balls && this.balls.held) || (this.gun && this.gun.held));
   }
 
   grabPlush() {
@@ -339,7 +384,9 @@ export class World {
     // Habitación 5x5, techo 2.6
     this.box(5, 0.1, 5, 0, -0.05, 0, floor, { block: false, ts: 0.8 });
     this.box(5, 0.1, 5, 0, 2.65, 0, ceil, { block: false, ts: 0.8 });
-    this.box(5.4, 2.7, 0.2, 0, 1.35, 2.6, wall, { ts: 1.2 });
+    this.box(3.3, 2.7, 0.2, -1.05, 1.35, 2.6, wall, { ts: 1.2 });   // pared sur, con hueco para el pasillo de puertas
+    this.box(0.7, 2.7, 0.2, 2.35, 1.35, 2.6, wall, { ts: 1.2 });
+    this.box(1.4, 0.3, 0.2, 1.3, 2.55, 2.6, wall, { ts: 1.2 });
     this.box(0.2, 2.7, 5.4, -2.6, 1.35, 0, wall, { ts: 1.2 });
     this.box(0.2, 2.7, 5.4, 2.6, 1.35, 0, wall, { ts: 1.2 });
     this.box(2.15, 2.7, 0.2, -1.625, 1.35, -2.6, wall, { ts: 1.2 });
@@ -347,7 +394,8 @@ export class World {
     this.box(1.1, 0.6, 0.2, 0, 2.4, -2.6, wall, { ts: 1.2 });
     // zócalo
     const skirting = this.mat('wood', 0x7a6050);
-    this.box(4.98, 0.12, 0.03, 0, 0.06, 2.485, skirting, { hand: false, block: false });
+    this.box(3.08, 0.12, 0.03, -0.94, 0.06, 2.485, skirting, { hand: false, block: false });
+    this.box(0.48, 0.12, 0.03, 2.24, 0.06, 2.485, skirting, { hand: false, block: false });
     this.box(0.03, 0.12, 4.98, -2.485, 0.06, 0, skirting, { hand: false, block: false });
     this.box(0.03, 0.12, 4.98, 2.485, 0.06, 0, skirting, { hand: false, block: false });
 
@@ -726,6 +774,8 @@ export class World {
   }
 
   handleEvent(evt, it) {
+    const hd = this.heldDoor && this.heldDoor();
+    if (hd && evt === 'twist') { hd.twist(); return true; }
     if (!it || it.disabled) return false;
     // Un golpe flojo es el mismo gesto (puño + golpe), solo que con menos fuerza
     if (evt === 'knock' && it.knock) {
@@ -761,6 +811,15 @@ export class World {
     for (const m of this.mixers) m.update(dt);
     if (this.balls) this.balls.update(dt);
     if (this.gun) this.gun.update(dt);
+    if (this.doors) {
+      let creak = 0, pitch = 0;
+      for (const d of this.doors) {
+        if (d.held && !this._handPalm && this.time - d.lastHeldT > 0.4) d.release(); // se perdió la mano
+        d.update(dt);
+        if (d.creak > creak) { creak = d.creak; pitch = d.creakPitch; }
+      }
+      this.ctx.sfx.setCreak(creak, pitch);
+    }
     const s = this.state;
     const t = this.time;
     const { sfx } = this.ctx;
