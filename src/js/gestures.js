@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { HandRetarget } from './handPose.js';
 
 const DEG = Math.PI / 180;
-const TH_KEY = 'gt_thresholds_v9';
+const TH_KEY = 'gt_thresholds_v10';
 
 export const DEFAULT_TH = {
   pinch: 0.36,      // distancia pulgar-índice / tamaño palma para "pinza"
@@ -18,7 +18,7 @@ export const DEFAULT_TH = {
   depthScale: 4.0,  // ganancia de profundidad: 1 cm real = 2,4 cm en el juego (brazo más largo)
   depthOffset: -0.08, // desplazamiento de profundidad
   handScale: 1.5,   // tamaño de la mano 3D
-  reach: 1.15,      // alcance lateral (para llegar a los bordes)
+  reach: 1.0,       // alcance lateral (1 = la mano sale donde la ve la cámara)
   hover: 0.13,      // distancia para considerar la mano "encima" de un objeto
   handLeft: 0,      // 0 = juegas con la mano derecha, 1 = con la izquierda
   stable: 1,        // 1 = mano estable reconstruida, 0 = puntos crudos de MediaPipe
@@ -103,6 +103,7 @@ export class HandGestures {
     this.fImg.forEach((f) => f.reset());
     this.fW.forEach((f) => f.reset());
     this.fDepth.reset();
+    this.depthHold = undefined;
     if (this.retarget) this.retarget.reset();
     this.hasPrev = false;
     this.pose = 'none';
@@ -155,7 +156,13 @@ export class HandGestures {
       if (di > 1e-4) depth = Math.min(depth, (f * dw) / di);
     }
     if (!isFinite(depth)) depth = 0.45;
-    depth = this.fDepth.f(Math.min(1.5, Math.max(0.1, depth)), dt);
+    // holgura: con la ganancia alta, el temblor de la estimación se multiplica; cambios < 8 mm se ignoran
+    depth = Math.min(1.5, Math.max(0.1, depth));
+    if (this.depthHold === undefined) this.depthHold = depth;
+    const dd = depth - this.depthHold, DSLACK = 0.008;
+    if (Math.abs(dd) > DSLACK) this.depthHold += dd - Math.sign(dd) * DSLACK;
+    this.depthRaw = depth;
+    depth = this.fDepth.f(this.depthHold, dt);
     const gameDepth = Math.min(2.2, Math.max(0.25, depth * th.depthScale + th.depthOffset));
 
     // --- Centro de la palma en pantalla (cámara trasera: sin espejo) ---
@@ -281,7 +288,7 @@ export class HandGestures {
     if (Math.abs(this.twistAcc) > th.twist * DEG) { events.push('twist'); this.twistAcc = 0; }
 
     this.v = {
-      pose: this.pose, pinch, open, maxOpen: this.maxOpen, idx, idxPull: idxMax - idx, speed, peak: this.peak, depth, gameDepth,
+      pose: this.pose, depthRaw: this.depthRaw, pinch, open, maxOpen: this.maxOpen, idx, idxPull: idxMax - idx, speed, peak: this.peak, depth, gameDepth,
       pinchDrop: this.pinchDrop, fistDrop: this.fistDrop,
       twist: this.twistAcc / DEG, vy: this.vel.y,
       curls: this.retarget.curl, thumbC: this.retarget.thumb, edge: this.retarget.edge, palmSign: this.retarget.palmSign, palmVisible: this.retarget.palmVisible, mirrored: this.retarget.mirrored,

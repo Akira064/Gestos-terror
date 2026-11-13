@@ -11,6 +11,10 @@ html, body {
   image-rendering: pixelated; image-rendering: crisp-edges;
 }
 #cam { position: fixed; left: -10px; top: -10px; width: 4px; height: 4px; opacity: 0; pointer-events: none; }
+#hud, #debug, #joy, #btnDebug, #btnRecenter, #btnCrouch, #btnDrop { z-index: 2; }
+/* modo calibración: la cámara real, semitransparente y estirada igual que la usa el juego */
+#cam.overlay { left: 0; top: 0; width: 100vw; height: 100vh; opacity: .42; object-fit: fill; z-index: 1;
+  transform-origin: 50% 50%; mix-blend-mode: screen; }
 
 #hud { position: fixed; inset: 0; pointer-events: none; text-shadow: 2px 2px 0 #000; }
 #timer { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);

@@ -37,6 +37,13 @@ export class DebugPanel {
       box.appendChild(row);
       this.inputs[key] = { inp, val, step };
     }
+    // Ver cámara: superpone la imagen real para comparar la mano 3D con tu mano
+    root.querySelector('#dbgCam').addEventListener('click', (e) => {
+      const v = document.getElementById('cam');
+      const on = v.classList.toggle('overlay');
+      v.style.transform = on ? `scale(${th.reach})` : '';
+      e.target.textContent = on ? 'Ocultar cámara' : 'Ver cámara';
+    });
     root.querySelector('#dbgReset').addEventListener('click', () => {
       Object.assign(th, DEFAULT_TH);
       saveThresholds(th);
@@ -102,7 +109,7 @@ export class DebugPanel {
       `dedos    ${(v.curls || []).map((c) => f(c, 1)).join(' ')} pulgar ${f(v.thumbC, 1)}${v.edge ? ' DE CANTO' : ''}`,
       `ves      ${v.palmVisible === undefined ? '-' : v.palmVisible ? 'PALMA' : 'DORSO'}${v.mirrored ? '  (profundidad corregida)' : ''}`,
       `gatillo  índice ${f(v.idx)} tirón ${f(v.idxPull)} / ${f(th.trigger)}`,
-      `prof     real ${f(v.depth)} m  juego ${f(v.gameDepth)}`,
+      `prof     real ${f(v.depth)} m (sin filtrar ${f(v.depthRaw)})  juego ${f(v.gameDepth)}`,
       `contacto ${info.contact ? 'SÍ' : 'no'}  objeto ${info.hover || '-'}`,
       `evento   ${info.now - this._lastEvtT < 1.5 ? this._lastEvt : ''}`,
     ].join('\n');
