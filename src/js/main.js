@@ -3,7 +3,7 @@ import { PS1Renderer } from './ps1.js';
 import { Sfx, vibrate, vibratePattern } from './audio.js';
 import { GyroLook, Joystick, PlayerMotion } from './controls.js';
 import { Tracker } from './tracking.js';
-import { HandGestures, loadThresholds } from './gestures.js';
+import { HandGestures, loadThresholds, saveThresholds } from './gestures.js';
 import { HandModel } from './handModel.js';
 import { World } from './world.js';
 import { DebugPanel } from './debug.js';
@@ -221,7 +221,12 @@ function updateHand(nowMs, dt) {
     return;
   }
   wasPresent = true;
-  if (!everSeen) { everSeen = true; $('handGuide').hidden = true; vibrate(30); }
+  if (!everSeen) {
+    everSeen = true; $('handGuide').hidden = true; vibrate(30);
+    let cal = null;
+    try { cal = localStorage.getItem('gt_calibrated'); } catch (e) { /* nada */ }
+    if (!cal) setTimeout(() => msg('Consejo: en DEBUG pulsa «Calibrar alcance» para ajustar la distancia a tu brazo.', 5), 2500);
+  }
   $('handState').textContent = 'MANO ' + gestures.pose;
   $('handState').classList.add('on');
 
@@ -337,6 +342,9 @@ function frame(now) {
     detectMs: tracker.detectMs,
     delegate: tracker.delegate,
     torch: tracker.torchOn,
+    lum: tracker.meanLum,
+    gain: tracker.gain,
+    exposure: tracker.exposureInfo,
     fps,
     contact,
     hover: hovered ? hovered.id : null,
@@ -355,7 +363,7 @@ async function startGame(sceneName, btn) {
     }
     status.style.color = '#a89c84';
     status.textContent = 'Activando cámara trasera y flash…';
-    await tracker.startCamera();
+    await tracker.startCamera({ hd: th.camHD >= 0.5 });
     await tracker.loadModel((t) => (status.textContent = t));
     if (!world) {
       world = sceneName === 'ouija' ? new OuijaScene(scene, ctx) : new World(scene, ctx);
@@ -406,3 +414,56 @@ $('btnCrouch').addEventListener('pointerdown', (e) => {
 });
 $('btnRecenter').addEventListener('click', () => gyro.recenter(0));
 $('btnAgain').addEventListener('click', () => location.reload());
+
+// ---------- Calibrar alcance (DEBUG) ----------
+// Dos pasos: mano cerca (cómoda) y brazo estirado. Tu rango real se ajusta al alcance del juego, así
+// da igual el tamaño de tu mano o la lente de tu móvil.
+const NEAR_G = 0.28, FAR_G = 1.15;
+let calibrating = false;
+async function sampleDepth(seconds) {
+  const vals = [];
+  const t0 = performance.now();
+  while (performance.now() - t0 < seconds * 1000) {
+    await new Promise((r) => setTimeout(r, 50));
+    if (wasPresent && gestures.v && gestures.v.depth) vals.push(gestures.v.depth);
+  }
+  if (vals.length < 5) return null;
+  vals.sort((a, b) => a - b);
+  return vals[Math.floor(vals.length / 2)];
+}
+async function countdown(text) {
+  for (let n = 3; n > 0; n--) {
+    $('handGuideText').innerHTML = `${text}<br><b style="font-size:26px">${n}</b>`;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  $('handGuideText').innerHTML = `${text}<br><b>quieta…</b>`;
+}
+$('dbgCalib').addEventListener('click', async () => {
+  if (calibrating || !running) return;
+  calibrating = true;
+  if (debug.on) debug.toggle();
+  $('handGuide').hidden = false;
+  await countdown('CALIBRAR 1/2<br>Pon la mano CERCA del móvil,<br>a la distancia más cómoda');
+  const near = await sampleDepth(1.2);
+  vibrate(30);
+  await countdown('CALIBRAR 2/2<br>Ahora ESTIRA EL BRAZO<br>todo lo que puedas');
+  const far = await sampleDepth(1.2);
+  vibrate(30);
+  if (near === null || far === null || far - near < 0.04) {
+    $('handGuideText').innerHTML = 'No he visto bien la mano o no ha cambiado la distancia.<br>Inténtalo otra vez.';
+  } else {
+    th.depthScale = Math.max(0.5, Math.min(10, (FAR_G - NEAR_G) / (far - near)));
+    th.depthOffset = Math.max(-1.5, Math.min(1, NEAR_G - near * th.depthScale));
+    saveThresholds(th);
+    debug.refresh();
+    try { localStorage.setItem('gt_calibrated', '1'); } catch (e) { /* nada */ }
+    $('handGuideText').innerHTML = `Alcance calibrado ✓<br><small>tu mano: ${Math.round(near * 100)}–${Math.round(far * 100)} cm estimados</small>`;
+  }
+  await new Promise((r) => setTimeout(r, 2500));
+  $('handGuide').hidden = true;
+  calibrating = false;
+});
+$('dbgFlash').addEventListener('click', async (e) => {
+  const on = await tracker.toggleTorch();
+  e.target.textContent = on ? 'Flash' : 'Flash (apagado)';
+});

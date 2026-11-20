@@ -57,6 +57,15 @@ export class DebugPanel {
     this._lastEvtT = 0;
   }
 
+  // sincroniza los deslizadores con los valores actuales
+  refresh() {
+    for (const k in this.inputs) {
+      const { inp, val, step } = this.inputs[k];
+      inp.value = this.th[k];
+      val.textContent = (+this.th[k]).toFixed(step < 1 ? 2 : 0);
+    }
+  }
+
   toggle() {
     this.on = !this.on;
     this.root.hidden = !this.on;
@@ -109,6 +118,7 @@ export class DebugPanel {
       `dedos    ${(v.curls || []).map((c) => f(c, 1)).join(' ')} pulgar ${f(v.thumbC, 1)}${v.edge ? ' DE CANTO' : ''}`,
       `ves      ${v.palmVisible === undefined ? '-' : v.palmVisible ? 'PALMA' : 'DORSO'}${v.mirrored ? '  (profundidad corregida)' : ''}`,
       `gatillo  índice ${f(v.idx)} tirón ${f(v.idxPull)} / ${f(th.trigger)}`,
+      `imagen   brillo ${f(info.lum, 0)} ajuste x${f(info.gain)} · exposición ${info.exposure || '-'}`,
       `prof     real ${f(v.depth)} m (sin filtrar ${f(v.depthRaw)})  juego ${f(v.gameDepth)}`,
       `contacto ${info.contact ? 'SÍ' : 'no'}  objeto ${info.hover || '-'}`,
       `evento   ${info.now - this._lastEvtT < 1.5 ? this._lastEvt : ''}`,

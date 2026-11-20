@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { HandRetarget } from './handPose.js';
 
 const DEG = Math.PI / 180;
-const TH_KEY = 'gt_thresholds_v10';
+const TH_KEY = 'gt_thresholds_v11';
 
 export const DEFAULT_TH = {
   pinch: 0.36,      // distancia pulgar-índice / tamaño palma para "pinza"
@@ -20,6 +20,7 @@ export const DEFAULT_TH = {
   handScale: 1.5,   // tamaño de la mano 3D
   reach: 1.0,       // alcance lateral (1 = la mano sale donde la ve la cámara)
   hover: 0.13,      // distancia para considerar la mano "encima" de un objeto
+  camHD: 0,         // 1 = cámara a más resolución (se aplica al volver a empezar)
   handLeft: 0,      // 0 = juegas con la mano derecha, 1 = con la izquierda
   stable: 1,        // 1 = mano estable reconstruida, 0 = puntos crudos de MediaPipe
   trigger: 0.18,    // cuánto tiene que doblarse el índice (rápido) para disparar
@@ -35,14 +36,15 @@ export const TH_SPEC = [
   ['grabWin', 'Agarre s', 0.3, 2, 0.05],
   ['twist', 'Giro º', 20, 140, 1],
   ['camFov', 'FOV cámara', 40, 90, 1],
-  ['depthScale', 'Prof. ganancia', 0.5, 6, 0.05],
-  ['depthOffset', 'Prof. offset', -0.3, 0.5, 0.01],
+  ['depthScale', 'Prof. ganancia', 0.5, 10, 0.05],
+  ['depthOffset', 'Prof. offset', -1.5, 1, 0.01],
   ['handScale', 'Tamaño mano', 0.6, 2, 0.05],
   ['reach', 'Alcance', 0.8, 1.6, 0.01],
   ['hover', 'Distancia obj.', 0.03, 0.25, 0.005],
   ['trigger', 'Gatillo', 0.06, 0.5, 0.01],
   ['stable', 'Mano estable', 0, 1, 1],
   ['handLeft', 'Mano izquierda', 0, 1, 1],
+  ['camHD', 'Cámara HD (reinicia)', 0, 1, 1],
 ];
 
 export function loadThresholds() {

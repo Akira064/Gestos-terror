@@ -20,7 +20,63 @@ export class Tracker {
     this.aspect = 4 / 3;
   }
 
-  async startCamera() {
+  // Imagen ajustada para el detector: en la oscuridad la mano sale negra y con el flash muy cerca sale
+  // quemada; en los dos casos MediaPipe falla. Se mide el brillo y se corrige antes de detectar.
+  _initEnhance() {
+    this.proc = document.createElement('canvas');
+    this.pctx = this.proc.getContext('2d', { willReadFrequently: false });
+    this.lum = document.createElement('canvas');
+    this.lum.width = 24; this.lum.height = 32;
+    this.lctx = this.lum.getContext('2d', { willReadFrequently: true });
+    this.gain = 1;
+    this.meanLum = 0;
+    this._lumN = 0;
+    this.enhance = true;
+  }
+
+  _measure(v) {
+    try {
+      this.lctx.drawImage(v, 0, 0, 24, 32);
+      const d = this.lctx.getImageData(0, 0, 24, 32).data;
+      let s = 0;
+      for (let i = 0; i < d.length; i += 4) s += d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11;
+      this.meanLum = s / (d.length / 4);
+      const target = Math.max(0.55, Math.min(3.2, 105 / Math.max(8, this.meanLum)));
+      this.gain += (target - this.gain) * 0.35;
+    } catch (e) { this.enhance = false; }
+  }
+
+  _source(v) {
+    if (!this.enhance) return v;
+    if (++this._lumN % 12 === 1) this._measure(v);
+    if (Math.abs(this.gain - 1) < 0.1) return v;            // imagen correcta: tal cual
+    const w = v.videoWidth, h = v.videoHeight;
+    if (this.proc.width !== w || this.proc.height !== h) { this.proc.width = w; this.proc.height = h; }
+    this.pctx.filter = `brightness(${this.gain.toFixed(2)})`;
+    this.pctx.drawImage(v, 0, 0, w, h);
+    return this.proc;
+  }
+
+  // Bajar un poco la exposición (si el móvil lo permite) para que el flash no queme la mano cerca
+  async _exposure() {
+    this.exposureInfo = 'no ajustable';
+    try {
+      const caps = this.track.getCapabilities ? this.track.getCapabilities() : {};
+      const adv = {};
+      if (caps.exposureMode && caps.exposureMode.includes('continuous')) adv.exposureMode = 'continuous';
+      if (caps.exposureCompensation) {
+        const c = caps.exposureCompensation;
+        adv.exposureCompensation = Math.max(c.min, Math.min(c.max, -0.7));
+      }
+      if (Object.keys(adv).length) {
+        await this.track.applyConstraints({ advanced: [adv] });
+        this.exposureInfo = adv.exposureCompensation !== undefined ? `comp ${adv.exposureCompensation.toFixed(1)} EV` : 'auto';
+      }
+    } catch (e) { /* sin control de exposición */ }
+  }
+
+  async startCamera({ hd = false } = {}) {
+    if (!this.proc) this._initEnhance();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       throw new Error('Este dispositivo no permite usar la cámara.');
     }
@@ -30,8 +86,8 @@ export class Tracker {
         audio: false,
         video: {
           facingMode: { exact: 'environment' },
-          width: { ideal: 480 },
-          height: { ideal: 640 },
+          width: { ideal: hd ? 720 : 480 },
+          height: { ideal: hd ? 960 : 640 },
           frameRate: { ideal: 30, max: 30 },
         },
       });
@@ -51,11 +107,17 @@ export class Tracker {
       setTimeout(res, 3000);
     });
     this.aspect = (this.video.videoWidth || 640) / (this.video.videoHeight || 480);
-    await this.setTorch(true);
-    // Algunos móviles solo exponen el flash tras unos instantes
-    if (!this.torchOn) setTimeout(() => this.setTorch(true), 800);
+    let wantTorch = true;
+    try { wantTorch = localStorage.getItem('gt_flash') !== '0'; } catch (e) { /* nada */ }
+    this.torchWanted = wantTorch;
+    if (wantTorch) {
+      await this.setTorch(true);
+      // Algunos móviles solo exponen el flash tras unos instantes
+      if (!this.torchOn) setTimeout(() => this.setTorch(true), 800);
+    }
+    await this._exposure();
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && this.torchOn) setTimeout(() => this.setTorch(true), 300);
+      if (!document.hidden && this.torchWanted) setTimeout(() => this.setTorch(true), 300);
     });
   }
 
@@ -71,6 +133,13 @@ export class Tracker {
       this.torchOn = false;
     }
     return this.torchOn;
+  }
+
+  async toggleTorch() {
+    this.torchWanted = !this.torchWanted;
+    try { localStorage.setItem('gt_flash', this.torchWanted ? '1' : '0'); } catch (e) { /* nada */ }
+    await this.setTorch(this.torchWanted);
+    return this.torchWanted;
   }
 
   async loadModel(onStatus) {
@@ -105,7 +174,7 @@ export class Tracker {
     const t0 = performance.now();
     let res;
     try {
-      res = this.landmarker.detectForVideo(v, nowMs);
+      res = this.landmarker.detectForVideo(this._source(v), nowMs);
     } catch (e) {
       return;
     }
@@ -125,6 +194,6 @@ export class Tracker {
   }
 
   present(nowMs) {
-    return nowMs - this.lastSeen < 280;
+    return nowMs - this.lastSeen < 400;   // fallos de detección muy cortos no hacen desaparecer la mano
   }
 }
