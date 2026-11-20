@@ -14,10 +14,11 @@ const LATCH_ZONE = 0.035;                 // por debajo de este ángulo el pesti
 export class Door {
   constructor(world, { x, z, kind }) {
     this.world = world;
-    this.kind = kind; // 'pomo' | 'maneta'
+    this.kind = kind; // 'pomo' | 'maneta' | 'empuje' (sin manilla ni pestillo: se abre y se cierra empujando)
+    this.maxOpen = kind === 'empuje' ? 1.4 : MAX_OPEN;   // la de empujar no llega a la pared
     this.theta = 0;
     this.omega = 0;
-    this.latched = true;
+    this.latched = kind !== 'empuje';
     this.held = false;
     this.pushSide = 0;
     this.lever = 0;      // 0..1 maneta bajada
@@ -30,7 +31,7 @@ export class Door {
     this.pivot = new THREE.Group();
     this.pivot.position.copy(this.hinge);
     world.scene.add(this.pivot);
-    const doorMat = ps1Mat({ map: makeTex('door'), color: kind === 'pomo' ? 0xb08870 : 0x8a9aa0 });
+    const doorMat = ps1Mat({ map: makeTex('door'), color: kind === 'pomo' ? 0xb08870 : kind === 'maneta' ? 0x8a9aa0 : 0x9a7a90 });
     this.leaf = new THREE.Mesh(boxGeo(W, H, T), doorMat);
     this.leaf.position.set(W / 2, H / 2, 0);
     this.pivot.add(this.leaf);
@@ -38,6 +39,19 @@ export class Door {
     this.blocker = { box: new THREE.Box3(), on: true };
     world.blockers.push(this.blocker);
 
+    if (kind === 'empuje') {
+      const plateMat = ps1Mat({ map: makeTex('metal'), color: 0xd8b060 });
+      for (const side of [-1, 1]) {
+        const plate = new THREE.Mesh(boxGeo(0.12, 0.32, 0.006), plateMat);
+        plate.position.set(HANDLE_X - 0.02, 1.2, side * (T / 2 + 0.003));
+        this.pivot.add(plate);
+      }
+      this.handle = null;
+      this.item = null;
+      this.spinners = [];
+      this.place();
+      return;
+    }
     // manillas en las dos caras
     const brass = ps1Mat({ map: makeTex('metal'), color: 0xd8b060 });
     const steel = ps1Mat({ map: makeTex('metal'), color: 0xd0d4dc });
@@ -154,28 +168,39 @@ export class Door {
     const loc = this.pivot.worldToLocal(this._l.copy(palmRaw));
     const onLeaf = loc.x > 0.06 && loc.x < W + 0.02 && loc.y > 0.15 && loc.y < H;
     if (!onLeaf || Math.abs(loc.z) > 0.3) { this.pushSide = 0; return null; }
-    const side = Math.sign(loc.z) || 1;
-    if (Math.abs(loc.z) > T / 2 + 0.02) { this.pushSide = side; this.sideT = this.world.time; return null; }  // aún no toca
-    if (!this.pushSide || this.world.time - this.sideT > 0.6) return null;   // hay que llegar desde un lado
-    this.sideT = this.world.time;
-    // la mano ha llegado a la hoja desde pushSide: la puerta cede hasta donde empujes
-    if (this.latched && this.theta < LATCH_ZONE) {
-      if (!this._bumped) { w.ctx.sfx.play('thud'); w.ctx.vibrate(18); this._bumped = true; }
+    const SURF = T / 2 + 0.02;
+    if (Math.abs(loc.z) > SURF && Math.sign(loc.z) === (this.pushSide || Math.sign(loc.z))) {
+      this.pushSide = Math.sign(loc.z) || 1;   // todavía no toca: recordar desde qué lado llega
       return null;
     }
-    this._bumped = false;
+    // si la mano "aparece" ya dentro de la puerta (salto de la detección), empuja desde tu lado
+    if (!this.pushSide) {
+      const cam = this.pivot.worldToLocal(this.world.ctx.camera.getWorldPosition(this._v));
+      this.pushSide = Math.sign(cam.z) || -1;
+    }
     const r = Math.hypot(palmRaw.x - this.hinge.x, palmRaw.z - this.hinge.z);
     if (r < 0.1) return null;
-    const a = this.angleOf(palmRaw) - this.pushSide * Math.asin(Math.min(1, (T / 2 + 0.02) / r));
-    // pushSide -1 (cara de la habitación) abre; +1 (cara del pasillo) cierra
-    if (this.pushSide < 0 && a > this.theta) this.theta = Math.min(MAX_OPEN, a);
-    if (this.pushSide > 0 && a < this.theta) this.theta = Math.max(0, a);
-    if (this.theta !== prev) {
-      const v = (this.theta - prev) / Math.max(dt, 1e-3);
-      this.omega = this.omega * 0.3 + v * 0.7;
-      this.pushing = true;
+    if (this.latched && this.theta < LATCH_ZONE) {
+      if (!this._bumped) { w.ctx.sfx.play('thud'); w.ctx.vibrate(18); this._bumped = true; }
+    } else {
+      this._bumped = false;
+      const a = this.angleOf(palmRaw) - this.pushSide * Math.asin(Math.min(1, SURF / r));
+      // pushSide -1 (cara de la habitación) abre; +1 (cara del pasillo) cierra
+      if (this.pushSide < 0 && a > this.theta) this.theta = Math.min(this.maxOpen, a);
+      if (this.pushSide > 0 && a < this.theta) this.theta = Math.max(0, a);
+      if (this.theta !== prev) {
+        const v = (this.theta - prev) / Math.max(dt, 1e-3);
+        this.omega = this.omega * 0.3 + v * 0.7;
+        this.pushing = true;
+        if (!this._touchT || w.time - this._touchT > 0.4) { w.ctx.vibrate(12); }
+        this._touchT = w.time;
+      }
     }
-    return null;
+    // la mano no atraviesa la puerta: queda apoyada en su superficie, del lado desde el que empujas
+    this.place();
+    const want = this._v.set(loc.x, loc.y, this.pushSide * (SURF - 0.008));
+    this.pivot.localToWorld(want);
+    return want.sub(palmRaw);
   }
 
   update(dt) {
@@ -183,12 +208,12 @@ export class Door {
     // movimiento libre con inercia (cuando nadie la sujeta ni la empuja ahora mismo)
     if (!this.held && !this.pushing) {
       this.theta += this.omega * dt;
-      this.omega *= Math.exp(-1.6 * dt);           // rozamiento de las bisagras
+      this.omega *= Math.exp(-(this.kind === 'empuje' ? 2.6 : 1.6) * dt);   // rozamiento de las bisagras
       if (Math.abs(this.omega) < 0.02) this.omega = 0;
     }
     this.pushing = false;
-    if (this.theta >= MAX_OPEN) {
-      this.theta = MAX_OPEN;
+    if (this.theta >= this.maxOpen) {
+      this.theta = this.maxOpen;
       if (this.omega > 1) { w.ctx.sfx.play('thud'); w.ctx.vibrate(30); }
       this.omega = this.omega > 0 ? -this.omega * 0.25 : this.omega;
     }
@@ -199,15 +224,15 @@ export class Door {
         w.ctx.sfx.play('slam');
         w.ctx.vibratePattern([90, 30, 50]);
         w.ctx.shake && w.ctx.shake(0.5);
-        this.latched = true;
-      } else if (this.omega < -0.15 || (!this.held && this.omega === 0 && !this.latched && prevNear(this))) {
+        if (this.kind !== 'empuje') this.latched = true;
+      } else if (this.omega < -0.15 && this.kind !== 'empuje') {
         w.ctx.sfx.play('latch');
         this.latched = true;
-      }
+      } else if (this.omega < -0.15) w.ctx.sfx.play('thud');
       this.omega = 0;
     }
     // el pestillo se vuelve a echar si la puerta queda cerrada sin sujetarla
-    if (!this.held && this.theta < 0.005 && !this.latched) this.latched = true;
+    if (!this.held && this.theta < 0.005 && !this.latched && this.kind !== 'empuje') this.latched = true;
 
     // crujido según la velocidad (abrir despacio = crujido largo)
     const sp = Math.abs(this.omega);
@@ -235,8 +260,7 @@ export class Door {
     this.pivot.rotation.y = -this.theta;
     this.pivot.updateWorldMatrix(true, true);
     this.blocker.box.setFromObject(this.leaf);
-    this.item.refresh();
+    if (this.item) this.item.refresh();
   }
 }
 
-function prevNear(d) { return d.theta < LATCH_ZONE; }

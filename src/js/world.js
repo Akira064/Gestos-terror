@@ -167,14 +167,14 @@ export class World {
     const floor = this.mat('wood', 0x9a8068);
     const ceil = this.mat('ceiling');
     const frame = this.mat('wood', 0x5a3a28);
-    const z0 = 2.7, z1 = 9.0, xl = 0.6, xr = 2.0, zc = (z0 + z1) / 2, len = z1 - z0;
+    const z0 = 2.7, z1 = 11.6, xl = 0.6, xr = 2.0, zc = (z0 + z1) / 2, len = z1 - z0;
     this.box(1.6, 0.1, len, 1.3, -0.05, zc, floor, { block: false, ts: 0.8 });
     this.box(1.6, 0.1, len, 1.3, 2.45, zc, ceil, { block: false, ts: 0.8 });
     this.box(0.2, 2.5, len, xl - 0.1, 1.25, zc, wall, { ts: 1.2 });
     this.box(0.2, 2.5, len, xr + 0.1, 1.25, zc, wall, { ts: 1.2 });
     this.box(1.6, 2.5, 0.2, 1.3, 1.25, z1 + 0.1, wall, { ts: 1.2 });
     this.doors = [];
-    for (const [dz, kind] of [[4.4, 'pomo'], [6.9, 'maneta']]) {
+    for (const [dz, kind] of [[4.4, 'pomo'], [6.9, 'maneta'], [9.4, 'empuje']]) {
       // marco: 0,25 m de pared a cada lado del hueco de 0,9 m y dintel
       this.box(0.25, 2.4, 0.16, xl + 0.125, 1.2, dz, frame);
       this.box(0.25, 2.4, 0.16, xr - 0.125, 1.2, dz, frame);
@@ -187,9 +187,11 @@ export class World {
     sign.position.set(1.3, 2.2, z0 + 0.02);
     sign.rotation.y = Math.PI;
     this.scene.add(sign);
-    const lamp = new THREE.PointLight(0xffe0b0, 1.2, 6, 2);
-    lamp.position.set(1.3, 2.2, 5.6);
-    this.scene.add(lamp);
+    for (const lz of [5.6, 10.2]) {
+      const lamp = new THREE.PointLight(0xffe0b0, 1.2, 6, 2);
+      lamp.position.set(1.3, 2.2, lz);
+      this.scene.add(lamp);
+    }
   }
 
   heldDoor() { return this.doors ? this.doors.find((d) => d.held) : null; }
@@ -201,7 +203,12 @@ export class World {
       if (held) {
         const off = held.touch(palmRaw, this._dt || 0.016);
         if (off) return off;
-      } else for (const d of this.doors) d.touch(palmRaw, this._dt || 0.016);
+      } else {
+        for (const d of this.doors) {
+          const off = d.touch(palmRaw, this._dt || 0.016);
+          if (off) return off;   // la mano queda apoyada en la puerta
+        }
+      }
     }
     this.squashTarget = this.plushHeld ? 0.25 : 0;
     if (this.plushHeld || !this.plush) return null;
