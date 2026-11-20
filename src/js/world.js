@@ -4,6 +4,7 @@ import { ps1Mat, boxGeo, makeTex, makeTextTex } from './ps1.js';
 import { Balls } from './balls.js';
 import { Gun } from './gun.js';
 import { Door } from './doors.js';
+import { Flail } from './flail.js';
 
 const PLAYER_R = 0.24;
 
@@ -145,6 +146,8 @@ export class World {
     this.balls = new Balls(this, { x0: tx - 0.02, z0: tz - 0.08, topY });
     // revólver Magnum tumbado en el borde de la mesa más cercano a ti
     this.gun = new Gun(this, tx + 0.2, topY + 0.018, tz + 0.24);
+    // mangual tumbado en el borde del fondo de la mesa
+    this.flail = new Flail(this, { x: tx - 0.4, y: topY, z: tz - 0.22 });
 
     this.itPlush = this.addItem({
       id: 'plush', gesture: 'grab', obj: this.plush, pad: 0.05,
@@ -256,7 +259,8 @@ export class World {
     const hd = this.heldDoor();
     if (hd) { hd.release(); return true; }
     const zero = new THREE.Vector3();
-    if (this.gun && this.gun.held) this.gun.release(zero);
+    if (this.flail && this.flail.held) this.flail.release(zero);
+    else if (this.gun && this.gun.held) this.gun.release(zero);
     else if (this.balls && this.balls.held) this.balls.release(zero);
     else if (this.plushHeld) this.releasePlush(zero);
     else return false;
@@ -265,7 +269,7 @@ export class World {
   }
 
   handBusy() {
-    return !!(this.heldDoor() || this.plushHeld || (this.balls && this.balls.held) || (this.gun && this.gun.held));
+    return !!(this.heldDoor() || (this.flail && this.flail.held) || this.plushHeld || (this.balls && this.balls.held) || (this.gun && this.gun.held));
   }
 
   grabPlush() {
@@ -811,6 +815,10 @@ export class World {
     for (const m of this.mixers) m.update(dt);
     if (this.balls) this.balls.update(dt);
     if (this.gun) this.gun.update(dt);
+    if (this.flail) {
+      if (this.flail.held && this.isThrow()) this.flail.release();   // lanzarlo
+      this.flail.update(dt);
+    }
     if (this.doors) {
       let creak = 0, pitch = 0;
       for (const d of this.doors) {
